@@ -14,6 +14,6 @@ public class users {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     @Column
-    
+    private Integer userid ;
 
 }
