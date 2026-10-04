@@ -7,7 +7,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.annotation.Proxyable;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @AllArgsConstructor
@@ -28,7 +30,7 @@ public class detection {
     private Integer wid;
 
     @Column(name = "detectedat")
-    private LocalDate detectedat;
+    private LocalDateTime detectedat;
 
     @Column(name = "rresult")
     private String rresult;
@@ -40,7 +42,7 @@ public class detection {
     private String fresult;
 
     @Column(name = "riskscore")
-    private double risckscore;
+    private BigDecimal risckscore;
 
     @Column(name = "actiontaken")
     private String actiontaken;

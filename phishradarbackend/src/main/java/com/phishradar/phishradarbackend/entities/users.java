@@ -6,8 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.util.Date;
-import java.util.Locale;
+import java.time.LocalDateTime;
+
 
 @AllArgsConstructor
 @Entity
@@ -33,6 +33,6 @@ public class users {
     private String ustatus;
 
     @Column(name = "createdat")
-    private LocalDate createdat;
+    private LocalDateTime createdat;
 
 }

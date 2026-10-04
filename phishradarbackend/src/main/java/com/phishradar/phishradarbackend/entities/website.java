@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @Entity
@@ -31,10 +32,10 @@ public class website {
     private String protocol ;
 
     @Column(name = "firstseen")
-    private LocalDate firstseen ;
+    private LocalDateTime firstseen ;
 
     @Column(name = "lastchecked")
-    private LocalDate lastchecked ;
+    private LocalDateTime lastchecked ;
 
 }
 

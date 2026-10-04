@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @AllArgsConstructor
 @Entity
 @Getter
@@ -26,7 +28,7 @@ public class mlmodel {
     private String version;
 
     @Column(name = "accuracy")
-    private Double accuracy;
+    private BigDecimal accuracy;
 
     @Column(name = "status")
     private String status;

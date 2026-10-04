@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @AllArgsConstructor
@@ -36,6 +37,6 @@ public class threat {
     private String description;
 
     @Column(name = "detectedat")
-    private LocalDate detectedat;
+    private LocalDateTime detectedat;
 
 }
