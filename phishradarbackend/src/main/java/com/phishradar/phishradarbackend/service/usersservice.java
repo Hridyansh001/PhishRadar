@@ -1,6 +1,7 @@
 package com.phishradar.phishradarbackend.service;
 
 
+import com.phishradar.phishradarbackend.entities.users;
 import com.phishradar.phishradarbackend.repository.usersrepository;
 import org.springframework.stereotype.Service;
 
@@ -12,5 +13,12 @@ public class usersservice {
     {
         this.usersrepository = usersrepository;
     }
+
+    public users updateuser(users updateuser, Integer userid)
+    {
+
+    }
+
+
 
 }
