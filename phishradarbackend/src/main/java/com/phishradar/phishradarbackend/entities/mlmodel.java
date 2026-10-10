@@ -3,6 +3,7 @@ package com.phishradar.phishradarbackend.entities;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Entity
 @Getter
+@NoArgsConstructor
 @Setter
 @Table(name = "mlmodel")
 public class mlmodel {

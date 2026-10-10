@@ -3,6 +3,7 @@ package com.phishradar.phishradarbackend.entities;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
+@NoArgsConstructor
 @Table(name = "users")
 public class users {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
