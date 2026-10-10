@@ -2,67 +2,96 @@
 package com.phishradar.phishradarbackend.service;
 
 import java.net.URI;
+import java.util.Locale;
 
 public class urlfeatureextractor {
 
-    public static double[] extract(String url) {
-        URI uri = URI.create(url);
-        String host = uri.getHost();
+    private urlfeatureextractor() {
+    }
 
-        if (host == null) {
-            throw new IllegalArgumentException("Invalid URL hostname");
+    public static double[] extract(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("URL cannot be empty");
         }
 
-        String path = uri.getPath() == null ? "" : uri.getPath();
+        final URI uri;
 
-        double urlLength = url.length();
-        double hostLength = host.length();
-        double dotCount = count(host, '.');
-        double hyphenCount = count(host, '-');
-        double subdomainCount = Math.max(0, dotCount - 1);
-        double hasIpAddress = host.matches(
-                "^(\\d{1,3}\\.){3}\\d{1,3}$") ? 1 : 0;
-        double usesHttps =
-                "https".equalsIgnoreCase(uri.getScheme()) ? 1 : 0;
-        double hasAtSymbol = url.contains("@") ? 1 : 0;
-        double suspiciousKeywordCount = countKeywords(url);
-        double pathLength = path.length();
+        try {
+            uri = URI.create(url.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid URL format");
+        }
+
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+
+        if (scheme == null ||
+                !(scheme.equalsIgnoreCase("http")
+                        || scheme.equalsIgnoreCase("https"))
+                || host == null) {
+            throw new IllegalArgumentException(
+                    "URL must be a valid HTTP or HTTPS URL");
+        }
+
+        String normalizedUrl = url.trim();
+        String lowerUrl = normalizedUrl.toLowerCase(Locale.ROOT);
+
+        // 1. URLLength
+        double urlLength = normalizedUrl.length();
+
+        // 2. DomainLength
+        double domainLength = host.length();
+
+        // 3. IsDomainIP
+        double isDomainIP =
+                host.matches("^(\\d{1,3}\\.){3}\\d{1,3}$") ? 1 : 0;
+
+        // 4. NoOfSubDomain
+        String[] domainParts = host.split("\\.");
+        double noOfSubDomain = Math.max(0, domainParts.length - 2);
+
+        // 5. HasObfuscation
+        double hasObfuscation =
+                lowerUrl.contains("%") || lowerUrl.contains("@") ? 1 : 0;
+
+        // 6. NoOfObfuscatedChar
+        double noOfObfuscatedChar = count(normalizedUrl, '%');
+
+        // 7. NoOfLettersInURL
+        double noOfLetters = normalizedUrl.chars()
+                .filter(Character::isLetter)
+                .count();
+
+        // 8. NoOfDegitsInURL (dataset spelling)
+        double noOfDigits = normalizedUrl.chars()
+                .filter(Character::isDigit)
+                .count();
+
+        // 9. NoOfEqualsInURL
+        double noOfEquals = count(normalizedUrl, '=');
+
+        // 10. IsHTTPS
+        double isHttps = scheme.equalsIgnoreCase("https") ? 1 : 0;
 
         return new double[] {
                 urlLength,
-                hostLength,
-                dotCount,
-                hyphenCount,
-                subdomainCount,
-                hasIpAddress,
-                usesHttps,
-                hasAtSymbol,
-                suspiciousKeywordCount,
-                pathLength
+                domainLength,
+                isDomainIP,
+                noOfSubDomain,
+                hasObfuscation,
+                noOfObfuscatedChar,
+                noOfLetters,
+                noOfDigits,
+                noOfEquals,
+                isHttps
         };
     }
 
     private static int count(String value, char target) {
         int total = 0;
-        for (char c : value.toCharArray()) {
-            if (c == target) {
-                total++;
-            }
-        }
-        return total;
-    }
 
-    private static int countKeywords(String url) {
-        String[] keywords = {
-                "login", "verify", "account", "secure",
-                "password", "signin", "update", "confirm"
-        };
-
-        String lower = url.toLowerCase();
-        int total = 0;
-
-        for (String keyword : keywords) {
-            if (lower.contains(keyword)) {
+        for (int i = 0; i < value.length(); i++) {
+            if (value.charAt(i) == target) {
                 total++;
             }
         }
