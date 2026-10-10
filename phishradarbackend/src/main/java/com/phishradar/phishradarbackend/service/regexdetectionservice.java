@@ -155,7 +155,6 @@ public class regexdetectionservice {
                     break;
             }
         }
-
         return Math.min(score, 100);
     }
 }
