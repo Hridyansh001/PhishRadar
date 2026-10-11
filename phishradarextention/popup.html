@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhishRadar</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="logo-row">
+        <img src="icons/icon48.png" alt="PhishRadar" class="logo" id="logo-img">
+        <div class="brand">
+          <h1>PhishRadar</h1>
+          <span class="tagline">Phishing Protection</span>
+        </div>
+      </div>
+      <div class="toggle-container">
+        <label class="toggle-switch" for="protection-toggle">
+          <input type="checkbox" id="protection-toggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label" id="toggle-label">ON</span>
+      </div>
+    </header>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="status-bar">
+      <div class="status-icon" id="status-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" id="status-svg">
+          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span id="status-text">Protection Active</span>
+    </div>
+
+    <!-- Current Tab Info -->
+    <div class="tab-info" id="tab-info">
+      <div class="tab-url-label">Current Tab</div>
+      <div class="tab-url" id="tab-url" title="">—</div>
+    </div>
+
+    <!-- Scan Result Panel (hidden by default) -->
+    <div class="scan-panel hidden" id="scan-panel">
+      <div class="scan-header" id="scan-header">
+        <span class="scan-verdict" id="scan-verdict">—</span>
+        <span class="scan-score" id="scan-score"></span>
+      </div>
+      <div class="scan-message" id="scan-message"></div>
+      <div class="scan-details" id="scan-details"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-scan" id="btn-scan" title="Scan the current tab URL">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M11 11l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Scan This Page
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <span>v1.0.0</span>
+      <a href="http://localhost:5173" target="_blank" id="dashboard-link">Open Dashboard</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚠️ PhishRadar Warning</title>
+  <link rel="stylesheet" href="warning.css">
+</head>
+<body>
+  <div class="warning-container">
+    <div class="warning-card">
+      <!-- Danger Icon -->
+      <div class="danger-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+
+      <h1 class="warning-title">Dangerous Site Detected</h1>
+      <p class="warning-subtitle">PhishRadar has identified this website as potentially dangerous</p>
+
+      <!-- URL Display -->
+      <div class="url-display">
+        <div class="url-label">You were navigating to:</div>
+        <div class="url-value" id="destination-url">—</div>
+        <div class="url-domain" id="destination-domain">—</div>
+      </div>
+
+      <!-- Detection Details -->
+      <div class="detection-details" id="detection-details">
+        <div class="detail-row">
+          <span class="detail-label">Verdict</span>
+          <span class="detail-value" id="detail-verdict">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Risk Score</span>
+          <span class="detail-value" id="detail-score">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Risk Level</span>
+          <span class="detail-value" id="detail-risklevel">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">ML Result</span>
+          <span class="detail-value" id="detail-ml">—</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Regex Result</span>
+          <span class="detail-value" id="detail-regex">—</span>
+        </div>
+      </div>
+
+      <!-- Findings -->
+      <div class="findings-section" id="findings-section" style="display:none;">
+        <div class="findings-label">Detection Indicators</div>
+        <div class="findings-list" id="findings-list"></div>
+      </div>
+
+      <!-- Message -->
+      <div class="warning-message" id="warning-message"></div>
+
+      <!-- Actions -->
+      <div class="warning-actions">
+        <button class="btn btn-block" id="btn-block">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Go Back to Safety
+        </button>
+        <button class="btn btn-continue" id="btn-continue">
+          Continue at My Own Risk
+        </button>
+      </div>
+
+      <p class="warning-footer">
+        PhishRadar uses ML classification and regex analysis to detect phishing URLs.
+        This warning is based on automated analysis and may not be 100% accurate.
+      </p>
+    </div>
+  </div>
+
+  <script src="warning.js"></script>
+</body>
+</html>
