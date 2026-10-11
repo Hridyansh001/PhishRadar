@@ -135,6 +135,24 @@ public class detectionservice {
 
         Map<String , Object> response = new HashMap<>();
 
+        String risklevel;
+        String message;
+
+        if (riskscore >= 60) {
+            risklevel = "HIGH";
+            message = "Potential phishing detected. Proceed with caution.";
+        } else if (riskscore >= 30) {
+            risklevel = "MEDIUM";
+            message = "Some suspicious indicators were detected. Verify this URL.";
+        } else {
+            risklevel = "LOW";
+            message = "No strong phishing indicators were detected.";
+        }
+
+        response.put("risklevel", risklevel);
+        response.put("message", message);
+
+
         response.put("url",url);
         response.put("domain",domain);
         response.put("regexresult",regexresult);
