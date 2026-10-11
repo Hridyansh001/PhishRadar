@@ -1,3 +1,4 @@
+
 package com.phishradar.phishradarbackend.service;
 
 import org.apache.commons.csv.CSVFormat;
@@ -5,7 +6,10 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import weka.classifiers.Evaluation;
 import weka.classifiers.trees.RandomForest;
-import weka.core.*;
+import weka.core.Attribute;
+import weka.core.DenseInstance;
+import weka.core.Instances;
+import weka.core.SerializationHelper;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -14,39 +18,41 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 public class modeltrainingservice {
+
     private static final String DATASET =
             "/dataset/PhiUSIIL_Phishing_URL_Dataset.csv";
 
-    private static final String[] FEATURES = {
-            "URLLength",
-            "DomainLength",
-            "IsDomainIP",
-            "NoOfSubDomain",
-            "HasObfuscation",
-            "NoOfObfuscatedChar",
-            "NoOfLettersInURL",
-            "NoOfDegitsInURL",
-            "NoOfEqualsInURL",
-            "IsHTTPS"
-    };
+    private static final int FEATURE_COUNT = 10;
 
     public static void main(String[] args) throws Exception {
         Instances data = loadDataset();
 
-        System.out.println("Valid records loaded: " + data.numInstances());
-        System.out.println("Features: " + data.numAttributes());
+        System.out.println("Valid unique URLs loaded: "
+                + data.numInstances());
+        System.out.println("Features: "
+                + (data.numAttributes() - 1));
 
-        // Shuffle before splitting.
+        if (data.numInstances() < 100) {
+            throw new IllegalStateException(
+                    "Not enough valid records to train.");
+        }
+
+        // Reproducible shuffle.
         data.randomize(new Random(42));
 
-        int trainSize = (int) Math.round(data.numInstances() * 0.80);
-        int testSize = data.numInstances() - trainSize;
+        int trainSize = (int) Math.round(
+                data.numInstances() * 0.80);
 
-        Instances trainingData = new Instances(data, 0, trainSize);
-        Instances testData = new Instances(data, trainSize, testSize);
+        Instances trainingData =
+                new Instances(data, 0, trainSize);
+        Instances testData =
+                new Instances(data, trainSize,
+                        data.numInstances() - trainSize);
 
         RandomForest model = new RandomForest();
         model.setNumIterations(100);
@@ -62,19 +68,23 @@ public class modeltrainingservice {
         System.out.println(evaluation.toClassDetailsString());
         System.out.println(evaluation.toMatrixString());
 
-        Path modelDirectory = Path.of("models");
+        Path modelDirectory =
+                Path.of("models");
         Files.createDirectories(modelDirectory);
 
-        Path modelFile = modelDirectory.resolve("phishing.model");
-        Path schemaFile = modelDirectory.resolve("phishing-schema.arff");
+        Path modelFile =
+                modelDirectory.resolve("phishing.model");
+        Path schemaFile =
+                modelDirectory.resolve("phishing-schema.arff");
 
-        // Save the trained classifier and an empty dataset schema.
         SerializationHelper.writeAll(
                 modelFile.toString(),
-                new Object[] { model, new Instances(data, 0) }
+                new Object[] {
+                        model,
+                        new Instances(data, 0)
+                }
         );
 
-        // Keep a readable copy of the training schema.
         Files.writeString(
                 schemaFile,
                 new Instances(data, 0).toString(),
@@ -88,23 +98,42 @@ public class modeltrainingservice {
     }
 
     private static Instances loadDataset() throws Exception {
+
         ArrayList<Attribute> attributes = new ArrayList<>();
 
-        for (String feature : FEATURES) {
-            attributes.add(new Attribute(feature));
+        // These names and positions must match URLFeatureExtractor.
+        String[] featureNames = {
+                "URLLength",
+                "DomainLength",
+                "IsDomainIP",
+                "NoOfSubDomain",
+                "HasObfuscation",
+                "NoOfObfuscatedChar",
+                "NoOfLettersInURL",
+                "NoOfDegitsInURL",
+                "NoOfEqualsInURL",
+                "IsHTTPS"
+        };
+
+        for (String name : featureNames) {
+            attributes.add(new Attribute(name));
         }
 
         ArrayList<String> classValues = new ArrayList<>();
         classValues.add("phishing");
         classValues.add("legitimate");
+
         attributes.add(new Attribute("label", classValues));
 
         Instances data = new Instances(
-                "PhiUSIIL_URL_Dataset", attributes, 1000);
+                "URL_Feature_Dataset", attributes, 1000);
         data.setClassIndex(data.numAttributes() - 1);
 
+        Set<String> seenUrls = new HashSet<>();
+
         try (InputStream input =
-                     modeltrainingservice.class.getResourceAsStream(DATASET)) {
+                     modeltrainingservice.class
+                             .getResourceAsStream(DATASET)) {
 
             if (input == null) {
                 throw new IllegalStateException(
@@ -112,7 +141,8 @@ public class modeltrainingservice {
             }
 
             try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(input, StandardCharsets.UTF_8));
+                    new InputStreamReader(
+                            input, StandardCharsets.UTF_8));
                  CSVParser parser = CSVFormat.DEFAULT.builder()
                          .setHeader()
                          .setSkipHeaderRecord(true)
@@ -122,36 +152,51 @@ public class modeltrainingservice {
 
                 for (CSVRecord record : parser) {
                     try {
-                        double[] values = new double[FEATURES.length + 1];
-
-                        for (int i = 0; i < FEATURES.length; i++) {
-                            values[i] = Double.parseDouble(
-                                    record.get(FEATURES[i]).trim());
-                        }
-
+                        String url = record.get("URL").trim();
                         String label = record.get("label").trim();
 
-                        if ("0".equals(label)) {
-                            values[FEATURES.length] = 0;
-                        } else if ("1".equals(label)) {
-                            values[FEATURES.length] = 1;
-                        } else {
+                        if (url.isBlank()
+                                || (!label.equals("0")
+                                && !label.equals("1"))) {
                             continue;
                         }
 
+                        // Avoid exact duplicate URLs.
+                        if (!seenUrls.add(url)) {
+                            continue;
+                        }
+
+                        // Use exactly the same feature extractor
+                        // as the live prediction service.
+                        double[] features =
+                                urlfeatureextractor.extract(url);
+
+                        if (features.length != FEATURE_COUNT) {
+                            throw new IllegalStateException(
+                                    "Expected 10 features, got "
+                                            + features.length);
+                        }
+
+                        double[] values =
+                                new double[FEATURE_COUNT + 1];
+
+                        System.arraycopy(
+                                features, 0,
+                                values, 0, FEATURE_COUNT);
+
+                        // Dataset definition: 0 = phishing,
+                        // 1 = legitimate.
+                        values[FEATURE_COUNT] =
+                                label.equals("0") ? 0 : 1;
+
                         data.add(new DenseInstance(1.0, values));
+
                     } catch (IllegalArgumentException e) {
-                        // Skip records with invalid numeric features.
+                        // Skip malformed URLs or invalid records.
                     }
                 }
             }
         }
-
-        if (data.numInstances() < 100) {
-            throw new IllegalStateException(
-                    "Not enough valid records to train the model");
-        }
-
         return data;
     }
 }

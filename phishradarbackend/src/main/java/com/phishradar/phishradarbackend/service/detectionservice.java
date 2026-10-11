@@ -24,13 +24,14 @@ public class detectionservice {
     private final usersrepository usersrepository;
     private final websiterepository websiterepository;
     private final detectionrepository detectionrepository;
-
-    public detectionservice(regexdetectionservice regexdetectionservice, usersrepository usersrepository, websiterepository websiterepository, detectionrepository detectionrepository)
+    private final mldetectionservice mldetectionservice;
+    public detectionservice(regexdetectionservice regexdetectionservice, usersrepository usersrepository, websiterepository websiterepository, detectionrepository detectionrepository,mldetectionservice mldetectionservice)
     {
         this.regexdetectionservice=regexdetectionservice;
         this.usersrepository=usersrepository;
         this.websiterepository=websiterepository;
         this.detectionrepository=detectionrepository;
+        this.mldetectionservice = mldetectionservice;
     }
 
     @Transactional
@@ -46,17 +47,54 @@ public class detectionservice {
         {
             throw new IllegalArgumentException("url is invalid");
         }
-        int riskscore = regexdetectionservice.calculateriskscore(findings);
+        int regexScore =
+                regexdetectionservice.calculateriskscore(findings);
 
-        String finalresult = riskscore >= 40 ? "SUSPICIOUS" : "SAFE";
+        String regexresult =
+                findings.isEmpty() ? "PASS" : "SUSPICIOUS";
 
-        String regexresult = findings.isEmpty() ? "PASS" : "SUSPICIOUS";
+        mldetectionservice.Prediction prediction;
 
-        String mlresult = "NA";
+        try {
+            prediction = mldetectionservice.predict(url);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "ML prediction failed. Detection was not completed.", e);
+        }
+
+        String mlresult = prediction.classification().toUpperCase();
+
+        double mlProbability = prediction.phishingProbability();
+
+// Combine the signals without treating either as definitive.
+        int riskscore = (int) Math.round(
+                0.5 * regexScore + 0.5 * mlProbability);
+
+        riskscore = Math.max(0, Math.min(100, riskscore));
+
+        String finalresult;
+
+        if (mlProbability >= 80 || riskscore >= 60) {
+            finalresult = "SUSPICIOUS";
+        } else if (mlProbability >= 50 || riskscore >= 30) {
+            finalresult = "REVIEW";
+        } else {
+            finalresult = "SAFE";
+        }
 
 
-        String actiontaken = finalresult.equals("SUSPICIOUS") ? "WARNING" : "ALLOWED";
-        URI uri = URI.create(url.trim());
+        String actiontaken;
+
+        switch (finalresult) {
+            case "SUSPICIOUS":
+                actiontaken = "WARNING";
+                break;
+            case "REVIEW":
+                actiontaken = "REVIEW";
+                break;
+            default:
+                actiontaken = "ALLOWED";
+        }        URI uri = URI.create(url.trim());
         String domain = uri.getHost();
 
         if(domain==null || domain.isBlank())
@@ -101,6 +139,8 @@ public class detectionservice {
         response.put("domain",domain);
         response.put("regexresult",regexresult);
         response.put("mlresult",mlresult);
+        response.put("mlProbability", mlProbability);
+        response.put("regexRiskScore", regexScore);
         response.put("finalresult",finalresult);
         response.put("risckscore",riskscore);
         response.put("actiontaken",actiontaken);

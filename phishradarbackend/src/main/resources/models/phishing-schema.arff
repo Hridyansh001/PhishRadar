@@ -1,4 +1,4 @@
-@relation PhiUSIIL_URL_Dataset
+@relation URL_Feature_Dataset
 
 @attribute URLLength numeric
 @attribute DomainLength numeric

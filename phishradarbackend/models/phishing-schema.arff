@@ -1,0 +1,15 @@
+@relation URL_Feature_Dataset
+
+@attribute URLLength numeric
+@attribute DomainLength numeric
+@attribute IsDomainIP numeric
+@attribute NoOfSubDomain numeric
+@attribute HasObfuscation numeric
+@attribute NoOfObfuscatedChar numeric
+@attribute NoOfLettersInURL numeric
+@attribute NoOfDegitsInURL numeric
+@attribute NoOfEqualsInURL numeric
+@attribute IsHTTPS numeric
+@attribute label {phishing,legitimate}
+
+@data
