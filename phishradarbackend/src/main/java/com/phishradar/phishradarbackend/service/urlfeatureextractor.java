@@ -14,10 +14,11 @@ public class urlfeatureextractor {
             throw new IllegalArgumentException("URL cannot be empty");
         }
 
-        final URI uri;
+        String normalizedUrl = url.trim();
+        URI uri;
 
         try {
-            uri = URI.create(url.trim());
+            uri = URI.create(normalizedUrl);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid URL format");
         }
@@ -30,31 +31,34 @@ public class urlfeatureextractor {
                         || scheme.equalsIgnoreCase("https"))
                 || host == null) {
             throw new IllegalArgumentException(
-                    "URL must be a valid HTTP or HTTPS URL");
+                    "Provide a valid HTTP or HTTPS URL");
         }
 
-        String normalizedUrl = url.trim();
         String lowerUrl = normalizedUrl.toLowerCase(Locale.ROOT);
+        String domain = host.toLowerCase(Locale.ROOT);
 
         // 1. URLLength
         double urlLength = normalizedUrl.length();
 
         // 2. DomainLength
-        double domainLength = host.length();
+        double domainLength = domain.length();
 
-        // 3. IsDomainIP
+        // 3. IsDomainIP: IPv4 literal check
         double isDomainIP =
-                host.matches("^(\\d{1,3}\\.){3}\\d{1,3}$") ? 1 : 0;
+                domain.matches("^(\\d{1,3}\\.){3}\\d{1,3}$")
+                        ? 1.0 : 0.0;
 
-        // 4. NoOfSubDomain
-        String[] domainParts = host.split("\\.");
-        double noOfSubDomain = Math.max(0, domainParts.length - 2);
+        // 4. NoOfSubDomain: approximate count
+        String[] domainParts = domain.split("\\.");
+        double noOfSubDomain =
+                Math.max(0, domainParts.length - 2);
 
-        // 5. HasObfuscation
+        // 5. HasObfuscation: provisional heuristic
         double hasObfuscation =
-                lowerUrl.contains("%") || lowerUrl.contains("@") ? 1 : 0;
+                lowerUrl.contains("%") || lowerUrl.contains("@")
+                        ? 1.0 : 0.0;
 
-        // 6. NoOfObfuscatedChar
+        // 6. NoOfObfuscatedChar: provisional percent count
         double noOfObfuscatedChar = count(normalizedUrl, '%');
 
         // 7. NoOfLettersInURL
@@ -71,7 +75,8 @@ public class urlfeatureextractor {
         double noOfEquals = count(normalizedUrl, '=');
 
         // 10. IsHTTPS
-        double isHttps = scheme.equalsIgnoreCase("https") ? 1 : 0;
+        double isHttps =
+                scheme.equalsIgnoreCase("https") ? 1.0 : 0.0;
 
         return new double[] {
                 urlLength,
