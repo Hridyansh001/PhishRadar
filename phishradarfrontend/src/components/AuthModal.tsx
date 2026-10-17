@@ -41,34 +41,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
     }
   };
 
-  const handleDemoUser = async () => {
-    setIsLoading(true);
-    try {
-      // Attempt login with default admin credentials
-      const user = await login({ email: 'admin@phishradar.local', password: 'admin' });
-      setUser(user);
-      onClose();
-    } catch {
-      try {
-        // If not registered yet, register on the backend
-        const user = await register({ uname: 'SecurityAuditor', email: 'admin@phishradar.local', password: 'admin' });
-        setUser(user);
-        onClose();
-      } catch {
-        // Offline / fallback fallback
-        setUser({
-          userid: 1,
-          uname: 'SecurityAuditor',
-          email: 'admin@phishradar.local',
-          ustatus: 'active',
-          createdat: new Date().toISOString(),
-        });
-        onClose();
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   return (
     <div style={{
@@ -88,7 +61,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
           width: '100%',
           maxWidth: '440px',
           padding: '32px',
-          backgroundColor: '#0e131f',
+          backgroundColor: '#0a0a0a',
           position: 'relative',
         }}
       >
@@ -113,7 +86,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
             width: '44px',
             height: '44px',
             borderRadius: '12px',
-            background: 'var(--primary-gradient)',
+            background: '#ffffff',
             margin: '0 auto 12px',
             display: 'flex',
             alignItems: 'center',
@@ -134,23 +107,21 @@ export function AuthModal({ onClose }: AuthModalProps) {
           </p>
         </div>
 
-        {error && (
           <div style={{
             padding: '10px 14px',
-            backgroundColor: 'var(--danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
             borderRadius: 'var(--radius-sm)',
-            color: '#f87171',
+            color: '#b91c1c',
             fontSize: '0.85rem',
             marginBottom: '16px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
           }}>
-            <span>⚠️</span>
+            <span style={{ fontWeight: 700 }}>Notice:</span>
             <span>{error}</span>
           </div>
-        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {mode === 'register' && (
@@ -231,26 +202,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
           </button>
         </form>
 
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          margin: '20px 0 16px',
-        }}>
-          <div style={{ height: '1px', flex: 1, backgroundColor: 'var(--border-subtle)' }} />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>or</span>
-          <div style={{ height: '1px', flex: 1, backgroundColor: 'var(--border-subtle)' }} />
-        </div>
 
-        {/* Quick Demo Access */}
-        <button
-          onClick={handleDemoUser}
-          className="btn-secondary"
-          style={{ width: '100%', justifyContent: 'center' }}
-        >
-          ⚡ Quick Demo Login (System User #1)
-        </button>
 
         <div style={{ textAlign: 'center', marginTop: '18px' }}>
           <button
@@ -259,7 +211,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
               setError(null);
             }}
             style={{
-              color: 'var(--radar-cyan)',
+              color: '#ffffff',
               fontSize: '0.85rem',
               fontWeight: 500,
             }}

@@ -68,25 +68,25 @@ export function FindingsBadge({ findingKey }: { findingKey: string }) {
     switch (meta.severity) {
       case 'high':
         return {
-          bg: 'rgba(239, 68, 68, 0.12)',
-          border: 'rgba(239, 68, 68, 0.3)',
-          color: '#f87171',
-          icon: '🛑',
+          bg: '#fef2f2',
+          border: '#fecaca',
+          color: '#b91c1c',
+          icon: '•',
         };
       case 'medium':
         return {
-          bg: 'rgba(245, 158, 11, 0.12)',
-          border: 'rgba(245, 158, 11, 0.3)',
-          color: '#fbbf24',
-          icon: '⚠️',
+          bg: '#fffbeb',
+          border: '#fde68a',
+          color: '#b45309',
+          icon: '•',
         };
       case 'low':
       default:
         return {
-          bg: 'rgba(56, 189, 248, 0.12)',
-          border: 'rgba(56, 189, 248, 0.25)',
-          color: '#38bdf8',
-          icon: 'ℹ️',
+          bg: '#f0fdf4',
+          border: '#bbf7d0',
+          color: '#15803d',
+          icon: '•',
         };
     }
   };

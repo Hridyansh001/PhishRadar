@@ -1,33 +1,32 @@
 interface RiskMeterProps {
   score: number;
-  verdict: 'SAFE' | 'REVIEW' | 'SUSPICIOUS';
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  verdict?: string;
+  riskLevel?: string;
   size?: number;
 }
 
-export function RiskMeter({ score, verdict, riskLevel, size = 180 }: RiskMeterProps) {
-  // Clamped score
+export function RiskMeter({ score, verdict = 'SAFE', riskLevel, size = 160 }: RiskMeterProps) {
   const safeScore = Math.max(0, Math.min(100, Math.round(score)));
 
-  // SVG parameters
-  const strokeWidth = 14;
+  const strokeWidth = 12;
   const radius = (size - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
-  // Use a 270 degree arc for gauge look
   const strokeDashoffset = circumference - (safeScore / 100) * circumference;
 
-  let color = 'var(--safe-green)';
-  let glowColor = 'var(--safe-glow)';
+  let color = '#15803d'; // Forest green on white
   let verdictLabel = 'SAFE';
+  let computedLevel = riskLevel || 'LOW';
 
-  if (verdict === 'SUSPICIOUS' || safeScore >= 60) {
-    color = 'var(--danger-crimson)';
-    glowColor = 'var(--danger-glow)';
-    verdictLabel = 'DANGER';
-  } else if (verdict === 'REVIEW' || safeScore >= 30) {
-    color = 'var(--warning-amber)';
-    glowColor = 'var(--warning-glow)';
-    verdictLabel = 'REVIEW';
+  const vUpper = (verdict || '').toUpperCase();
+
+  if (vUpper === 'SUSPICIOUS' || vUpper === 'MALICIOUS' || safeScore >= 60) {
+    color = '#b91c1c'; // Deep crimson
+    verdictLabel = 'MALICIOUS';
+    computedLevel = riskLevel || 'HIGH';
+  } else if (vUpper === 'REVIEW' || safeScore >= 30) {
+    color = '#b45309'; // Amber
+    verdictLabel = 'SUSPICIOUS';
+    computedLevel = riskLevel || 'MEDIUM';
   }
 
   return (
@@ -43,7 +42,7 @@ export function RiskMeter({ score, verdict, riskLevel, size = 180 }: RiskMeterPr
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
-          style={{ transform: 'rotate(-90deg)', filter: `drop-shadow(${glowColor})` }}
+          style={{ transform: 'rotate(-90deg)' }}
         >
           {/* Background Track */}
           <circle
@@ -51,7 +50,7 @@ export function RiskMeter({ score, verdict, riskLevel, size = 180 }: RiskMeterPr
             cy={size / 2}
             r={radius}
             fill="transparent"
-            stroke="rgba(255, 255, 255, 0.08)"
+            stroke="#f0f0f0"
             strokeWidth={strokeWidth}
           />
           {/* Progress Arc */}
@@ -82,41 +81,46 @@ export function RiskMeter({ score, verdict, riskLevel, size = 180 }: RiskMeterPr
           pointerEvents: 'none',
         }}>
           <span style={{
-            fontSize: '2.5rem',
-            fontWeight: 800,
-            fontFamily: 'var(--font-mono)',
-            color: color,
+            fontSize: size >= 180 ? '2.8rem' : '2.2rem',
+            fontWeight: 700,
+            color: '#111827',
+            fontFamily: "'Times New Roman', Times, serif",
             lineHeight: 1,
-            letterSpacing: '-0.03em',
           }}>
             {safeScore}
           </span>
           <span style={{
-            fontSize: '0.75rem',
-            color: 'var(--text-muted)',
+            fontSize: '0.72rem',
+            color: '#6b7280',
             fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            marginTop: '4px',
+            letterSpacing: '0.04em',
+            marginTop: '3px',
+            fontFamily: "'Times New Roman', Times, serif",
           }}>
-            Risk Score
+            out of 100
           </span>
         </div>
       </div>
 
-      {/* Level Tag */}
+      {/* Level Tag (No emojis) */}
       <div style={{
-        marginTop: '12px',
+        marginTop: '10px',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '6px',
+        padding: '3px 12px',
+        borderRadius: '9999px',
+        backgroundColor: '#ffffff',
+        border: `1px solid ${color}50`,
+        fontSize: '0.75rem',
+        fontWeight: 700,
+        color: color,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        fontFamily: "'Times New Roman', Times, serif",
       }}>
-        <span className={`badge ${
-          verdict === 'SUSPICIOUS' ? 'badge-danger' :
-          verdict === 'REVIEW' ? 'badge-review' : 'badge-safe'
-        }`}>
-          {verdictLabel} &bull; {riskLevel} RISK
-        </span>
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, display: 'inline-block' }} />
+        <span>{verdictLabel} • {computedLevel} RISK</span>
       </div>
     </div>
   );

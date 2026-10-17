@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDetectionHistory, ApiError } from '../services/api';
 import type { DetectionHistoryItem } from '../types/api';
+import { RiskMeter } from '../components/RiskMeter';
 
 export function HistoryPage() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export function HistoryPage() {
             className="btn-secondary"
             style={{ fontSize: '0.85rem' }}
           >
-            📥 Export Audit Log (JSON)
+            Export Audit Log (JSON)
           </button>
         </div>
       </div>
@@ -92,13 +93,13 @@ export function HistoryPage() {
       {error && (
         <div style={{
           padding: '12px 16px',
-          backgroundColor: 'var(--danger-bg)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
           borderRadius: 'var(--radius-md)',
-          color: '#f87171',
+          color: '#b91c1c',
           marginBottom: '20px',
         }}>
-          ⚠️ {error}
+          <strong>Notice:</strong> {error}
         </div>
       )}
 
@@ -117,8 +118,11 @@ export function HistoryPage() {
       >
         {/* Search */}
         <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }}>
-            🔍
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', display: 'flex' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
           </span>
           <input
             type="text"
@@ -129,9 +133,9 @@ export function HistoryPage() {
               width: '100%',
               padding: '10px 14px 10px 38px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-main)',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              color: '#111827',
               fontSize: '0.9rem',
               outline: 'none',
             }}
@@ -149,9 +153,9 @@ export function HistoryPage() {
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.82rem',
                 fontWeight: 600,
-                backgroundColor: verdictFilter === verdict ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                color: verdictFilter === verdict ? 'var(--radar-cyan)' : 'var(--text-muted)',
-                border: verdictFilter === verdict ? '1px solid rgba(0, 242, 254, 0.35)' : '1px solid var(--border-subtle)',
+                backgroundColor: verdictFilter === verdict ? '#000000' : '#ffffff',
+                color: verdictFilter === verdict ? '#ffffff' : '#374151',
+                border: verdictFilter === verdict ? '1px solid #000000' : '1px solid #d1d5db',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -165,12 +169,10 @@ export function HistoryPage() {
       <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>
-            <span className="radar-sweep-icon" style={{ display: 'inline-block', fontSize: '1.8rem', marginBottom: '12px' }}>🔄</span>
             <div>Loading detection history from MySQL repository...</div>
           </div>
         ) : filteredItems.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🔍</div>
             <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>No matching records found</div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '4px' }}>
               {history.length === 0 ? 'No scan history exists yet for this user.' : 'Try adjusting your search query or verdict filter.'}
@@ -322,30 +324,16 @@ export function HistoryPage() {
               ✕
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '10px',
-                backgroundColor: selectedItem.fresult === 'SUSPICIOUS' ? 'var(--danger-bg)' :
-                  selectedItem.fresult === 'REVIEW' ? 'var(--warning-bg)' : 'var(--safe-bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.4rem',
-              }}>
-                {selectedItem.fresult === 'SUSPICIOUS' ? '🚨' : selectedItem.fresult === 'REVIEW' ? '⚠️' : '🛡️'}
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
+              <RiskMeter
+                score={selectedItem.riskscore}
+                verdict={selectedItem.fresult}
+                size={160}
+              />
+              <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff' }}>
                   Detection Record #{selectedItem.did}
                 </h3>
-                <span className={`badge ${
-                  selectedItem.fresult === 'SUSPICIOUS' ? 'badge-danger' :
-                  selectedItem.fresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
-                }`}>
-                  Verdict: {selectedItem.fresult}
-                </span>
               </div>
             </div>
 

@@ -24,7 +24,7 @@
     findings = [];
   }
 
-  // Safely display the URL (textContent, not innerHTML)
+  // Elements
   const urlEl = document.getElementById('destination-url');
   const domainEl = document.getElementById('destination-domain');
   const verdictEl = document.getElementById('detail-verdict');
@@ -38,7 +38,6 @@
 
   // Populate URL (safely via textContent)
   if (destinationUrl) {
-    // Truncate very long URLs for display
     urlEl.textContent = destinationUrl.length > 200
       ? destinationUrl.substring(0, 200) + '…'
       : destinationUrl;
@@ -57,7 +56,7 @@
   }
 
   if (risckscore) {
-    scoreEl.textContent = risckscore + '/100';
+    scoreEl.textContent = risckscore + ' / 100';
     const score = parseInt(risckscore, 10);
     if (score >= 60) scoreEl.classList.add('danger');
     else if (score >= 30) scoreEl.classList.add('warning');
@@ -83,7 +82,7 @@
     else regexEl.classList.add('safe');
   }
 
-  // Populate findings
+  // Populate findings (hidden but still functional)
   const dangerFindings = new Set([
     'IP_ADDRESS_IN_URL', 'HIGHLY_SUSPICIOUS_DOMAIN', 'URL_SHORTENER_DETECTED'
   ]);

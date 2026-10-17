@@ -1,35 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { scanUrl, ApiError } from '../services/api';
-import type { DetectionResponse } from '../types/api';
+import { scanUrl, getDetectionHistory, getDetectionStats, ApiError } from '../services/api';
+import type { DetectionResponse, DetectionHistoryItem, DetectionStats } from '../types/api';
 import { RiskMeter } from '../components/RiskMeter';
-import { FindingsBadge } from '../components/FindingsBadge';
 
-const SAMPLE_URLS = [
-  { label: 'Safe Official Site', url: 'https://github.com', type: 'safe' },
-  { label: 'Brand Impersonation', url: 'http://paypal-security-update.com/login', type: 'phish' },
-  { label: 'Raw IP Host', url: 'http://192.168.1.100/admin/auth.php', type: 'phish' },
-  { label: 'Suspicious TLD (.tk)', url: 'http://secure-banking-alert.tk/verify', type: 'phish' },
-  { label: 'URL Shortener', url: 'https://bit.ly/crypto-giveaway-claim', type: 'suspicious' },
+const QUICK_CHECKS = [
+  { label: 'Official Site', url: 'https://www.google.com' },
+  { label: 'Brand Impersonation', url: 'http://paypal-security-update.com/login' },
+  { label: 'Suspicious TLD', url: 'http://secure-banking-alert.tk/verify' },
+  { label: 'URL Shortener', url: 'https://bit.ly/3xQ9Z7' },
 ];
 
 export function ScannerPage() {
   const { user } = useAuth();
+  const effectiveUserId = user?.userid || 1;
+
   const [inputUrl, setInputUrl] = useState('');
-  const [userIdInput, setUserIdInput] = useState<number>(user?.userid || 1);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<DetectionResponse | null>(null);
+  const [selectedScan, setSelectedScan] = useState<DetectionHistoryItem | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showJson, setShowJson] = useState(false);
+  const [history, setHistory] = useState<DetectionHistoryItem[]>([]);
+  const [stats, setStats] = useState<DetectionStats | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, [effectiveUserId]);
+
+  async function loadData() {
+    try {
+      const [historyData, statsData] = await Promise.all([
+        getDetectionHistory(effectiveUserId),
+        getDetectionStats(effectiveUserId),
+      ]);
+      setHistory(historyData);
+      setStats(statsData);
+    } catch {
+      // Ignore
+    }
+  }
 
   const handleScan = async (targetUrl?: string) => {
     const urlToTest = (targetUrl || inputUrl).trim();
     if (!urlToTest) {
-      setError('Please provide a URL to analyze');
+      setError('Please provide a URL to analyze.');
       return;
     }
 
-    // Basic URL validation
     if (!urlToTest.startsWith('http://') && !urlToTest.startsWith('https://')) {
       setError('URL must start with http:// or https://');
       return;
@@ -37,11 +54,12 @@ export function ScannerPage() {
 
     setError(null);
     setIsLoading(true);
+    setResult(null);
 
     try {
-      const effectiveUserId = userIdInput || user?.userid || 1;
       const scanResult = await scanUrl(urlToTest, effectiveUserId);
       setResult(scanResult);
+      await loadData();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -53,430 +71,599 @@ export function ScannerPage() {
     }
   };
 
-  const handleSelectSample = (sampleUrl: string) => {
-    setInputUrl(sampleUrl);
-    handleScan(sampleUrl);
+  const handleQuickCheck = (url: string) => {
+    setInputUrl(url);
+    handleScan(url);
+  };
+
+  const totalScanned = stats?.totalScans || 0;
+  const threatsDetected = stats?.suspicious || 0;
+  const safeUrls = stats?.safe || 0;
+
+  const getVerdictColor = (verdict: string) => {
+    const v = (verdict || '').toUpperCase();
+    if (v === 'SUSPICIOUS' || v === 'MALICIOUS') return '#b91c1c';
+    if (v === 'REVIEW') return '#b45309';
+    if (v === 'SAFE') return '#15803d';
+    return '#4b5563';
+  };
+
+  const getTimeAgo = (dateStr: string | null) => {
+    if (!dateStr) return 'Just now';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} minutes ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hours ago`;
+    return `${Math.floor(hours / 24)} days ago`;
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
-      {/* Hero Banner */}
-      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
-          borderRadius: '9999px',
-          background: 'rgba(0, 242, 254, 0.1)',
-          border: '1px solid rgba(0, 242, 254, 0.25)',
-          color: 'var(--radar-cyan)',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          marginBottom: '16px',
-        }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--radar-cyan)' }} className="radar-pulse" />
-          Enterprise Dual-Engine Phishing Detection
-        </div>
+    <div style={{ maxWidth: '1060px', margin: '0 auto', padding: '48px 24px' }}>
+      {/* Title & Tagline */}
+      <div style={{ marginBottom: '28px' }}>
         <h1 style={{
-          fontSize: 'clamp(2rem, 4vw, 3.2rem)',
-          fontWeight: 800,
-          letterSpacing: '-0.03em',
-          lineHeight: 1.15,
-          background: 'linear-gradient(180deg, #ffffff 40%, #94a3b8 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          marginBottom: '14px',
+          fontSize: '2.4rem',
+          fontWeight: 700,
+          color: '#000000',
+          letterSpacing: '0.01em',
+          margin: 0,
         }}>
-          Real-Time URL Threat Inspection
+          URL Scanner & Phishing Telemetry
         </h1>
-        <p style={{
-          fontSize: '1.05rem',
-          color: 'var(--text-muted)',
-          maxWidth: '680px',
-          margin: '0 auto',
-        }}>
-          Evaluate URLs instantly across machine learning RandomForest classification and 8-point regex heuristics to uncover deceptive links and credential theft traps.
+        <p style={{ fontSize: '1rem', color: '#4b5563', fontStyle: 'italic', marginTop: '6px' }}>
+          Evaluate suspicious links through machine learning analysis and heuristic regex indicators
         </p>
       </div>
 
-      {/* Main Input Card */}
-      <div className="glass-panel" style={{ padding: '28px', marginBottom: '32px' }}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleScan();
-          }}
-          style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}
-        >
-          <div style={{ flex: 1, minWidth: '280px', position: 'relative' }}>
-            <span style={{
-              position: 'absolute',
-              left: '16px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-dim)',
-              fontSize: '1.2rem',
-            }}>
-              🔍
-            </span>
-            <input
-              type="text"
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Enter full URL to analyze (e.g. https://www.google.com or http://192.168.1.1/login)"
-              style={{
-                width: '100%',
-                padding: '14px 16px 14px 48px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-main)',
-                fontSize: '1rem',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-              }}
-            />
-          </div>
-
-          <div style={{ width: '130px', position: 'relative' }}>
-            <span style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-dim)',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-            }}>
-              UID:
-            </span>
-            <input
-              type="number"
-              min="1"
-              value={userIdInput}
-              onChange={(e) => setUserIdInput(parseInt(e.target.value, 10) || 1)}
-              title="Database user ID (required by POST /api/detect)"
-              placeholder="1"
-              style={{
-                width: '100%',
-                padding: '14px 14px 14px 44px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-main)',
-                fontSize: '0.95rem',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn-primary"
-            style={{ padding: '14px 28px', fontSize: '1rem' }}
-          >
-            {isLoading ? (
-              <>
-                <span className="radar-sweep-icon">🔄</span>
-                Analyzing URL...
-              </>
-            ) : (
-              <>
-                <span>🎯</span>
-                Analyze Threat
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Sample URLs */}
-        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
-            Quick Test Cases:
-          </span>
-          {SAMPLE_URLS.map((sample) => (
-            <button
-              key={sample.url}
-              onClick={() => handleSelectSample(sample.url)}
-              style={{
-                fontSize: '0.82rem',
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                color: sample.type === 'phish' ? '#f87171' : sample.type === 'safe' ? '#34d399' : '#fbbf24',
-                border: '1px solid var(--border-subtle)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {sample.label}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div style={{
-            marginTop: '20px',
-            padding: '12px 16px',
-            backgroundColor: 'var(--danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: 'var(--radius-sm)',
-            color: '#f87171',
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}>
-            <span>⚠️</span>
-            <span>{error}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Analysis Results Display */}
-      {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Top Banner Alert */}
-          <div
-            className="glass-panel"
+      {/* Search Bar Panel */}
+      <div style={{
+        padding: '24px',
+        backgroundColor: 'rgba(255, 255, 255, 0.94)',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        marginBottom: '28px',
+      }}>
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          marginBottom: '16px',
+        }}>
+          <input
+            type="text"
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleScan()}
+            placeholder="Enter a URL to analyze (e.g. https://example.com)"
             style={{
-              padding: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '20px',
-              flexWrap: 'wrap',
-              borderLeft: `6px solid ${
-                result.finalresult === 'SUSPICIOUS' ? 'var(--danger-crimson)' :
-                result.finalresult === 'REVIEW' ? 'var(--warning-amber)' : 'var(--safe-green)'
-              }`,
+              flex: 1,
+              padding: '12px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              color: '#111827',
+              fontSize: '1rem',
+              outline: 'none',
+              boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.04)',
+            }}
+          />
+          <button
+            onClick={() => handleScan()}
+            disabled={isLoading}
+            style={{
+              padding: '12px 32px',
+              borderRadius: '8px',
+              backgroundColor: '#000000',
+              color: '#ffffff',
+              border: '1px solid #000000',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1,
+              transition: 'all 0.15s ease',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-              <div style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: result.finalresult === 'SUSPICIOUS' ? 'var(--danger-bg)' :
-                  result.finalresult === 'REVIEW' ? 'var(--warning-bg)' : 'var(--safe-bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.8rem',
-              }}>
-                {result.finalresult === 'SUSPICIOUS' ? '🚨' :
-                 result.finalresult === 'REVIEW' ? '⚠️' : '🛡️'}
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
-                    {result.finalresult === 'SUSPICIOUS' ? 'Phishing Threat Flagged' :
-                     result.finalresult === 'REVIEW' ? 'Suspicious Indicators Found' : 'Clean & Legitimate URL'}
-                  </h2>
-                  <span className={`badge ${
-                    result.finalresult === 'SUSPICIOUS' ? 'badge-danger' :
-                    result.finalresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
-                  }`}>
-                    Action: {result.actiontaken}
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginTop: '4px' }}>
-                  {result.message}
-                </p>
-                <div style={{
-                  fontSize: '0.85rem',
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--radar-blue)',
-                  marginTop: '6px',
-                  wordBreak: 'break-all',
-                }}>
-                  Target: {result.url}
-                </div>
-              </div>
-            </div>
+            {isLoading ? 'Analyzing...' : 'Analyze'}
+          </button>
+        </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+        {/* Quick Checks */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontSize: '0.88rem',
+          color: '#6b7280',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontWeight: 600, color: '#374151' }}>Quick checks:</span>
+          {QUICK_CHECKS.map((item, idx) => (
+            <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button
-                onClick={() => setShowJson(!showJson)}
-                className="btn-secondary"
-                style={{ fontSize: '0.85rem' }}
+                onClick={() => handleQuickCheck(item.url)}
+                style={{
+                  color: '#111827',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                }}
               >
-                {showJson ? 'Hide JSON' : 'Inspect Raw Telemetry'}
+                {item.label}
               </button>
+              {idx < QUICK_CHECKS.length - 1 && <span style={{ color: '#d1d5db' }}>|</span>}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div style={{
+          padding: '14px 18px',
+          marginBottom: '28px',
+          borderRadius: '8px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#b91c1c',
+          fontSize: '0.92rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}>
+          <span style={{ fontWeight: 700 }}>Notice:</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Generated Scan Result Card with Pie Chart Score Display */}
+      {result && (
+        <div style={{
+          padding: '28px',
+          marginBottom: '40px',
+          borderRadius: '12px',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div>
+              <span style={{
+                fontSize: '0.78rem',
+                color: '#6b7280',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                fontWeight: 700,
+              }}>
+                Live Security Evaluation
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', wordBreak: 'break-all', marginTop: '2px' }}>
+                {result.url}
+              </div>
             </div>
+            <button
+              onClick={() => setResult(null)}
+              style={{
+                color: '#6b7280',
+                fontSize: '1.2rem',
+                padding: '4px 8px',
+                lineHeight: 1,
+                cursor: 'pointer',
+              }}
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </div>
 
-          {/* Core Telemetry Grid */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '24px',
+            gridTemplateColumns: 'auto 1fr',
+            gap: '36px',
+            alignItems: 'center',
+            paddingTop: '16px',
+            borderTop: '1px solid #f3f4f6',
           }}>
-            {/* Risk Score Gauge Card */}
-            <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '20px' }}>
-                Aggregate Security Risk
-              </h3>
+            {/* Pie Chart Radial Score Display */}
+            <div style={{ padding: '8px 16px' }}>
               <RiskMeter
                 score={result.risckscore}
                 verdict={result.finalresult}
                 riskLevel={result.risklevel}
-                size={200}
+                size={170}
               />
-              <div style={{
-                marginTop: '20px',
-                fontSize: '0.8rem',
-                color: 'var(--text-dim)',
-                textAlign: 'center',
-                maxWidth: '260px',
-              }}>
-                Formula: Round(50% Regex + 50% ML Probability)
-              </div>
             </div>
 
-            {/* Dual Engine Analysis Breakdown */}
-            <div className="glass-panel" style={{ padding: '28px' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚡</span> Dual-Engine Inspector
-              </h3>
-
-              {/* Machine Learning Model */}
-              <div style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid var(--border-subtle)',
-                marginBottom: '16px',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.1rem' }}>🤖</span>
-                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Weka ML RandomForest</span>
+            {/* Evaluation Breakdown Metrics */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Verdict</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: getVerdictColor(result.finalresult), marginTop: '3px' }}>
+                    {result.finalresult}
                   </div>
-                  <span className={`badge ${result.mlresult === 'PHISHING' ? 'badge-danger' : 'badge-safe'}`}>
+                </div>
+
+                <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>ML Classification</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: result.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d', marginTop: '3px' }}>
                     {result.mlresult}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span>Phishing Probability:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-main)' }}>
-                    {result.mlProbability}%
-                  </span>
-                </div>
-                {/* Progress bar */}
-                <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'rgba(255, 255, 255, 0.08)', marginTop: '8px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${result.mlProbability}%`,
-                    height: '100%',
-                    backgroundColor: result.mlProbability >= 60 ? 'var(--danger-crimson)' : result.mlProbability >= 30 ? 'var(--warning-amber)' : 'var(--safe-green)',
-                    transition: 'width 0.6s ease',
-                  }} />
-                </div>
-              </div>
-
-              {/* Regex Heuristics */}
-              <div style={{
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid var(--border-subtle)',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.1rem' }}>📐</span>
-                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Lexical Regex Engine</span>
                   </div>
-                  <span className={`badge ${result.regexresult === 'SUSPICIOUS' ? 'badge-danger' : 'badge-safe'}`}>
+                </div>
+
+                <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Action Taken</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', marginTop: '3px' }}>
+                    {result.actiontaken}
+                  </div>
+                </div>
+
+                <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Regex Rules</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: result.regexresult === 'PASS' ? '#15803d' : '#b45309', marginTop: '3px' }}>
                     {result.regexresult}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span>Lexical Risk Score:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-main)' }}>
-                    {result.regexRiskScore} / 100
-                  </span>
-                </div>
-                {/* Progress bar */}
-                <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'rgba(255, 255, 255, 0.08)', marginTop: '8px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${result.regexRiskScore}%`,
-                    height: '100%',
-                    backgroundColor: result.regexRiskScore >= 60 ? 'var(--danger-crimson)' : result.regexRiskScore >= 30 ? 'var(--warning-amber)' : 'var(--safe-green)',
-                    transition: 'width 0.6s ease',
-                  }} />
+                  </div>
                 </div>
               </div>
 
-              {/* Host and Domain Details */}
-              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-dim)' }}>
-                <span>Domain Target: <strong>{result.domain || 'N/A'}</strong></span>
-                <span>Findings Count: <strong>{result.findings?.length || 0}</strong></span>
-              </div>
+              {result.message && (
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '0.92rem',
+                  color: '#374151',
+                }}>
+                  <strong style={{ color: '#111827' }}>Recommendation:</strong> {result.message}
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Heuristic Findings Breakdown */}
-          <div className="glass-panel" style={{ padding: '28px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🔎</span> Lexical Heuristic Triggers
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-              Pattern matching rules triggered based on character entropy, security keywords, and structural anomalies:
+      {/* Aggregate Stats Row */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '24px',
+        marginBottom: '40px',
+        padding: '24px',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+      }}>
+        <div>
+          <div style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>URLs Scanned</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#000000', marginTop: '4px' }}>{totalScanned}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Threats Detected</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#b91c1c', marginTop: '4px' }}>{threatsDetected}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Safe URLs</div>
+          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#15803d', marginTop: '4px' }}>{safeUrls}</div>
+        </div>
+      </div>
+
+      {/* Recent Scans Table Section */}
+      <div style={{
+        padding: '28px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #e5e7eb',
+        borderRadius: '12px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          borderBottom: '1px solid #e5e7eb',
+          paddingBottom: '14px',
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#000000', margin: 0 }}>
+              Recent Security Evaluations
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: '#6b7280', fontStyle: 'italic', marginTop: '2px' }}>
+              Click any risk score or entry to inspect the pie chart risk distribution
             </p>
-
-            {result.findings && result.findings.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                {result.findings.map((finding) => (
-                  <FindingsBadge key={finding} findingKey={finding} />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                padding: '24px',
-                textAlign: 'center',
-                backgroundColor: 'rgba(16, 185, 129, 0.06)',
-                border: '1px dashed rgba(16, 185, 129, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                color: '#34d399',
-              }}>
-                <div style={{ fontSize: '1.5rem', marginBottom: '6px' }}>✨</div>
-                <div style={{ fontWeight: 600 }}>Zero Lexical Anomalies Detected</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  No high-risk keywords, IP hostings, shortened links, or suspicious TLDs found.
-                </div>
-              </div>
-            )}
           </div>
+          <a
+            href="/history"
+            style={{
+              fontSize: '0.88rem',
+              color: '#000000',
+              fontWeight: 600,
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+            }}
+          >
+            View Full Log
+          </a>
+        </div>
 
-          {/* Raw JSON Modal/Inspector */}
-          {showJson && (
-            <div className="glass-panel" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                  Backend Response Payload (/api/detect)
-                </span>
-                <button
-                  onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-                >
-                  Copy JSON
-                </button>
-              </div>
-              <pre style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                padding: '16px',
-                borderRadius: 'var(--radius-sm)',
-                overflowX: 'auto',
-                fontSize: '0.82rem',
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--radar-cyan)',
+        {history.length === 0 ? (
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: '#6b7280',
+            fontSize: '0.95rem',
+            fontStyle: 'italic',
+          }}>
+            No security evaluations recorded yet. Analyze a URL above to log entries.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              textAlign: 'left',
+              fontSize: '0.92rem',
+            }}>
+              <thead>
+                <tr style={{
+                  borderBottom: '1px solid #e5e7eb',
+                  color: '#6b7280',
+                  fontSize: '0.78rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>#</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>URL Destination</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Verdict</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Risk Score (Click to view)</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Recorded</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 10).map((item, index) => (
+                  <tr
+                    key={item.did}
+                    onClick={() => setSelectedScan(item)}
+                    style={{
+                      borderBottom: '1px solid #f3f4f6',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <td style={{ padding: '14px 8px', color: '#6b7280', fontWeight: 600 }}>
+                      {index + 1}
+                    </td>
+                    <td style={{
+                      padding: '14px 16px',
+                      color: '#111827',
+                      fontWeight: 500,
+                      maxWidth: '340px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {item.url || `Website #${item.wid}`}
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{
+                        color: getVerdictColor(item.fresult),
+                        fontWeight: 700,
+                      }}>
+                        {item.fresult === 'SAFE' ? 'Safe' :
+                         item.fresult === 'SUSPICIOUS' ? 'Malicious' :
+                         'Suspicious'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      {/* Clickable Score Pill */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedScan(item);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 12px',
+                          borderRadius: '6px',
+                          backgroundColor: '#ffffff',
+                          border: `1px solid ${getVerdictColor(item.fresult)}60`,
+                          color: getVerdictColor(item.fresult),
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                        }}
+                        title="Click to view pie chart score breakdown"
+                      >
+                        <span>{item.riskscore} / 100</span>
+                      </button>
+                    </td>
+                    <td style={{
+                      padding: '14px 16px',
+                      color: '#6b7280',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {getTimeAgo(item.detectedat)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Pie Chart Score Breakdown Modal */}
+      {selectedScan && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 120,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(6px)',
+          padding: '20px',
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '500px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '14px',
+            padding: '32px',
+            position: 'relative',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.15)',
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedScan(null)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                color: '#6b7280',
+                fontSize: '1.2rem',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                lineHeight: 1,
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+              <span style={{
+                fontSize: '0.74rem',
+                color: '#6b7280',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
               }}>
-                {JSON.stringify(result, null, 2)}
-              </pre>
+                Telemetry Risk Breakdown
+              </span>
+              <h3 style={{
+                fontSize: '1.2rem',
+                fontWeight: 700,
+                color: '#111827',
+                marginTop: '4px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {selectedScan.url || `Website #${selectedScan.wid}`}
+              </h3>
             </div>
-          )}
+
+            {/* Circular Pie Chart Radial Score Display */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '16px 0 24px',
+              borderBottom: '1px solid #f3f4f6',
+            }}>
+              <RiskMeter
+                score={selectedScan.riskscore}
+                verdict={selectedScan.fresult}
+                size={180}
+              />
+            </div>
+
+            {/* Metrics Breakdown Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              marginTop: '20px',
+            }}>
+              <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 600 }}>Verdict</span>
+                <span style={{ color: getVerdictColor(selectedScan.fresult), fontWeight: 700, fontSize: '1rem' }}>
+                  {selectedScan.fresult}
+                </span>
+              </div>
+
+              <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 600 }}>ML Classification</span>
+                <span style={{ color: selectedScan.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d', fontWeight: 700, fontSize: '1rem' }}>
+                  {selectedScan.mlresult || 'N/A'}
+                </span>
+              </div>
+
+              <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 600 }}>Action Applied</span>
+                <span style={{ color: '#111827', fontWeight: 700, fontSize: '0.95rem' }}>
+                  {selectedScan.actiontaken || 'ALLOWED'}
+                </span>
+              </div>
+
+              <div style={{ padding: '12px 14px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 600 }}>Regex Rules</span>
+                <span style={{ color: selectedScan.rresult === 'PASS' ? '#15803d' : '#b45309', fontWeight: 700, fontSize: '0.95rem' }}>
+                  {selectedScan.rresult || 'PASS'}
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              marginTop: '24px',
+              paddingTop: '18px',
+              borderTop: '1px solid #f3f4f6',
+            }}>
+              {selectedScan.url && (
+                <button
+                  onClick={() => {
+                    setInputUrl(selectedScan.url || '');
+                    setSelectedScan(null);
+                    handleScan(selectedScan.url);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '11px',
+                    borderRadius: '8px',
+                    backgroundColor: '#000000',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.92rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Re-Scan URL
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedScan(null)}
+                style={{
+                  flex: 1,
+                  padding: '11px',
+                  borderRadius: '8px',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  border: '1px solid #d1d5db',
+                  fontWeight: 600,
+                  fontSize: '0.92rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -74,26 +74,25 @@ export function DashboardPage() {
         </div>
 
         <Link to="/" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
-          <span>🎯</span> Launch New Scan
+          Launch New Scan
         </Link>
       </div>
 
       {error && (
         <div style={{
           padding: '14px 18px',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
           borderRadius: 'var(--radius-md)',
-          color: '#f87171',
+          color: '#b91c1c',
           marginBottom: '24px',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
         }}>
-          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
           <div>
             <div style={{ fontWeight: 600 }}>Backend Connection Alert</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{error}</div>
+            <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{error}</div>
           </div>
         </div>
       )}
@@ -109,35 +108,30 @@ export function DashboardPage() {
           title="Total Scans Logged"
           value={isLoading ? '...' : total}
           subtitle="Processed via backend"
-          icon="🛡️"
           color="cyan"
         />
         <StatCard
           title="Suspicious Threats"
           value={isLoading ? '...' : suspicious}
           subtitle="Blocked or flagged"
-          icon="🚨"
           color="red"
         />
         <StatCard
           title="Requires Review"
           value={isLoading ? '...' : review}
           subtitle="Ambiguous indicators"
-          icon="⚠️"
           color="amber"
         />
         <StatCard
           title="Clean / Safe URLs"
           value={isLoading ? '...' : safe}
           subtitle="Allowed traffic"
-          icon="✅"
           color="green"
         />
         <StatCard
           title="Active Warnings"
           value={isLoading ? '...' : warnings}
           subtitle="Action: WARNING"
-          icon="🛑"
           color="red"
         />
       </div>
@@ -296,19 +290,17 @@ export function DashboardPage() {
 
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
-            <span className="radar-sweep-icon" style={{ display: 'inline-block', fontSize: '1.5rem', marginBottom: '8px' }}>🔄</span>
             <div>Loading security event records...</div>
           </div>
         ) : history.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '40px 20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+            backgroundColor: '#f9fafb',
             borderRadius: 'var(--radius-md)',
-            border: '1px dashed var(--border-subtle)',
+            border: '1px dashed #d1d5db',
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📭</div>
-            <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>No scan history recorded yet</div>
+            <div style={{ fontWeight: 600, color: '#111827' }}>No scan history recorded yet</div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
               Run your first scan on the Scanner page or browse with the Chrome extension.
             </div>

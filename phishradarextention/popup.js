@@ -1,13 +1,16 @@
-// PhishRadar Popup Script
+// PhishRadar Popup Script — Redesigned
 
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   const toggle = document.getElementById('protection-toggle');
   const toggleLabel = document.getElementById('toggle-label');
-  const statusBar = document.getElementById('status-bar');
-  const statusText = document.getElementById('status-text');
   const tabUrlEl = document.getElementById('tab-url');
+  const websiteStatus = document.getElementById('website-status');
+  const statScanned = document.getElementById('stat-scanned');
+  const statBlocked = document.getElementById('stat-blocked');
+  const lastScanTime = document.getElementById('last-scan-time');
+  const lastScanResult = document.getElementById('last-scan-result');
   const btnScan = document.getElementById('btn-scan');
   const scanPanel = document.getElementById('scan-panel');
   const scanVerdict = document.getElementById('scan-verdict');
@@ -18,10 +21,24 @@ async function init() {
   let currentTabUrl = null;
 
   // Load protection state
-  const stored = await chrome.storage.local.get('protectionEnabled');
+  const stored = await chrome.storage.local.get(['protectionEnabled', 'scanCount', 'blockCount', 'lastScanTimestamp', 'lastScanVerdict']);
   const isEnabled = stored.protectionEnabled !== false;
   toggle.checked = isEnabled;
   updateProtectionUI(isEnabled);
+
+  // Load stats from storage
+  statScanned.textContent = stored.scanCount || 0;
+  statBlocked.textContent = stored.blockCount || 0;
+
+  // Load last scan info
+  if (stored.lastScanTimestamp) {
+    const elapsed = Date.now() - stored.lastScanTimestamp;
+    lastScanTime.textContent = formatTimeAgo(elapsed);
+    lastScanResult.textContent = stored.lastScanVerdict || 'Scan completed';
+    if (stored.lastScanVerdict && stored.lastScanVerdict.includes('Phishing')) {
+      lastScanResult.style.color = '#f85149';
+    }
+  }
 
   // Get current tab URL
   try {
@@ -30,12 +47,15 @@ async function init() {
       currentTabUrl = tab.url;
       try {
         const parsed = new URL(tab.url);
-        tabUrlEl.textContent = parsed.hostname + parsed.pathname;
+        tabUrlEl.textContent = parsed.hostname;
         tabUrlEl.title = tab.url;
       } catch {
-        tabUrlEl.textContent = tab.url.substring(0, 50);
+        tabUrlEl.textContent = tab.url.substring(0, 40);
         tabUrlEl.title = tab.url;
       }
+
+      // Auto-scan the current tab
+      autoScanCurrentTab(tab.url);
     }
   } catch {
     tabUrlEl.textContent = 'Unable to read tab URL';
@@ -48,93 +68,93 @@ async function init() {
     updateProtectionUI(enabled);
   });
 
-  // Scan button handler
-  btnScan.addEventListener('click', async () => {
-    if (!currentTabUrl) return;
-
-    // Validate URL
-    try {
-      const parsed = new URL(currentTabUrl);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        showScanResult({ error: true, message: 'Only HTTP/HTTPS URLs can be scanned' });
-        return;
-      }
-    } catch {
-      showScanResult({ error: true, message: 'Invalid URL' });
-      return;
-    }
-
-    // Show scanning state
-    setScanning(true);
-    scanPanel.classList.remove('hidden');
-
-    try {
-      const result = await chrome.runtime.sendMessage({
-        type: 'SCAN_URL',
-        url: currentTabUrl
-      });
-      showScanResult(result);
-    } catch (err) {
-      showScanResult({ error: true, message: 'Scan failed: ' + err.message });
-    } finally {
-      setScanning(false);
-    }
+  // Tab info card click — trigger scan
+  document.getElementById('tab-info').addEventListener('click', () => {
+    if (currentTabUrl) autoScanCurrentTab(currentTabUrl);
   });
 
   function updateProtectionUI(enabled) {
     toggleLabel.textContent = enabled ? 'ON' : 'OFF';
     toggleLabel.classList.toggle('off', !enabled);
+  }
 
-    if (enabled) {
-      statusBar.className = 'status-bar';
-      statusText.textContent = 'Protection Active';
-    } else {
-      statusBar.className = 'status-bar disabled';
-      statusText.textContent = 'Protection Disabled';
+  async function autoScanCurrentTab(url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        updateWebsiteStatus('safe', 'System page');
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'SCAN_URL',
+        url: url
+      });
+      showScanResult(result);
+
+      // Update stats
+      const data = await chrome.storage.local.get(['scanCount', 'blockCount']);
+      const newScanCount = (data.scanCount || 0) + 1;
+      let newBlockCount = data.blockCount || 0;
+
+      if (result && (result.finalresult === 'SUSPICIOUS')) {
+        newBlockCount += 1;
+      }
+
+      await chrome.storage.local.set({
+        scanCount: newScanCount,
+        blockCount: newBlockCount,
+        lastScanTimestamp: Date.now(),
+        lastScanVerdict: result.finalresult === 'SUSPICIOUS' ? 'Phishing indicators detected' : 'No threats found'
+      });
+
+      statScanned.textContent = newScanCount;
+      statBlocked.textContent = newBlockCount;
+      lastScanTime.textContent = 'Just now';
+      lastScanResult.textContent = result.finalresult === 'SUSPICIOUS' ? 'Phishing indicators detected' : 'No threats found';
+      if (result.finalresult === 'SUSPICIOUS') {
+        lastScanResult.style.color = '#f85149';
+      } else {
+        lastScanResult.style.color = '';
+      }
+
+    } catch (err) {
+      updateWebsiteStatus('safe', 'Backend offline');
     }
   }
 
-  function setScanning(scanning) {
-    if (scanning) {
-      statusBar.className = 'status-bar scanning';
-      statusText.textContent = 'Scanning...';
-      btnScan.disabled = true;
-      btnScan.innerHTML = '<span class="spinner"></span> Scanning...';
-      scanVerdict.textContent = 'Scanning...';
-      scanVerdict.className = 'scan-verdict';
-      scanScore.textContent = '';
-      scanMessage.textContent = 'Analyzing URL with ML model and regex patterns...';
-      scanDetails.innerHTML = '';
-    } else {
-      const enabled = toggle.checked;
-      updateProtectionUI(enabled);
-      btnScan.disabled = false;
-      btnScan.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-        <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
-        <path d="M11 11l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg> Scan This Page`;
-    }
+  function updateWebsiteStatus(level, text) {
+    const dot = websiteStatus.querySelector('.status-dot');
+    dot.className = 'status-dot ' + level;
+    websiteStatus.childNodes[websiteStatus.childNodes.length - 1].textContent = ' ' + text;
   }
 
   function showScanResult(result) {
-    scanPanel.classList.remove('hidden');
+    if (!result) return;
 
     if (result.error) {
-      scanVerdict.textContent = 'ERROR';
-      scanVerdict.className = 'scan-verdict error';
-      scanScore.textContent = '';
-      scanMessage.textContent = result.message || 'Backend unavailable';
-      scanDetails.innerHTML = '';
-      statusBar.className = 'status-bar disabled';
-      statusText.textContent = 'Scan Error';
+      updateWebsiteStatus('warning', 'Scan error');
       return;
     }
 
     const verdict = result.finalresult || 'UNKNOWN';
-    const score = result.risckscore;
-    const risklevel = result.risklevel || '';
 
-    // Set verdict display
+    // Update current website status
+    if (verdict === 'SUSPICIOUS') {
+      updateWebsiteStatus('danger', 'Blocked');
+    } else if (verdict === 'REVIEW') {
+      updateWebsiteStatus('warning', 'Suspicious');
+    } else {
+      updateWebsiteStatus('safe', 'Safe');
+    }
+
+    // Show scan panel with details
+    scanPanel.classList.remove('hidden');
+
     scanVerdict.textContent = verdict;
     if (verdict === 'SAFE') {
       scanVerdict.className = 'scan-verdict safe';
@@ -146,28 +166,23 @@ async function init() {
       scanVerdict.className = 'scan-verdict';
     }
 
-    // Set score display
+    // Score
+    const score = result.risckscore;
     if (score !== undefined && score !== null) {
-      scanScore.textContent = score;
-      if (score >= 60) {
-        scanScore.className = 'scan-score high';
-      } else if (score >= 30) {
-        scanScore.className = 'scan-score medium';
-      } else {
-        scanScore.className = 'scan-score low';
-      }
+      scanScore.textContent = score + '/100';
+      if (score >= 60) scanScore.className = 'scan-score high';
+      else if (score >= 30) scanScore.className = 'scan-score medium';
+      else scanScore.className = 'scan-score low';
     } else {
       scanScore.textContent = '';
     }
 
-    // Set message
     scanMessage.textContent = result.message || '';
 
-    // Set findings
+    // Findings
     const findings = result.findings || [];
     const dangerFindings = new Set([
-      'IP_ADDRESS_IN_URL', 'HIGHLY_SUSPICIOUS_DOMAIN',
-      'URL_SHORTENER_DETECTED'
+      'IP_ADDRESS_IN_URL', 'HIGHLY_SUSPICIOUS_DOMAIN', 'URL_SHORTENER_DETECTED'
     ]);
     const warningFindings = new Set([
       'SUSPICIOUS_KEYWORD', 'SUSPICIOUS_TLD', 'NOT_HTTPS',
@@ -186,7 +201,7 @@ async function init() {
       });
     }
 
-    // Update ML and regex info
+    // ML and regex info
     const extraInfo = [];
     if (result.mlresult) extraInfo.push(`ML: ${result.mlresult}`);
     if (result.regexresult) extraInfo.push(`Regex: ${result.regexresult}`);
@@ -196,17 +211,15 @@ async function init() {
       infoTag.textContent = extraInfo.join(' | ');
       scanDetails.appendChild(infoTag);
     }
+  }
 
-    // Update status bar
-    if (verdict === 'SUSPICIOUS') {
-      statusBar.className = 'status-bar danger';
-      statusText.textContent = 'Threat Detected!';
-    } else if (verdict === 'REVIEW') {
-      statusBar.className = 'status-bar warning';
-      statusText.textContent = 'Suspicious Indicators';
-    } else {
-      statusBar.className = 'status-bar';
-      statusText.textContent = 'Page is Safe';
-    }
+  function formatTimeAgo(ms) {
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return seconds + ' seconds ago';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + ' minutes ago';
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + ' hours ago';
+    return Math.floor(hours / 24) + ' days ago';
   }
 }

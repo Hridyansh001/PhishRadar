@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
+
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: string;
+  icon?: ReactNode;
   color?: 'cyan' | 'green' | 'amber' | 'red';
 }
 
@@ -76,18 +78,19 @@ export function StatCard({ title, value, subtitle, icon, color = 'cyan' }: StatC
         )}
       </div>
 
-      <div style={{
-        width: '48px',
-        height: '48px',
-        borderRadius: 'var(--radius-md)',
-        backgroundColor: theme.iconBg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '1.5rem',
-      }}>
-        {icon}
-      </div>
+      {icon && (
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: theme.iconBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {icon}
+        </div>
+      )}
     </div>
   );
 }

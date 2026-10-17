@@ -147,36 +147,33 @@ export async function getDetectionStats(
   };
 }
 
-// ========== User Profile Session ==========
+// ========== User Authentication & Profile (MySQL DB) ==========
 
 export async function login(data: LoginRequest): Promise<UserResponse> {
-  return {
-    userid: 1,
-    uname: data.email.split('@')[0] || 'SecurityUser',
-    email: data.email,
-    ustatus: 'active',
-    createdat: new Date().toISOString(),
-  };
+  const user = await request<UserResponse>('/users/login', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: data.email.trim(),
+      password: data.password,
+    }),
+  });
+  return user;
 }
 
 export async function register(data: RegisterRequest): Promise<UserResponse> {
-  return {
-    userid: 1,
-    uname: data.uname || 'SecurityUser',
-    email: data.email,
-    ustatus: 'active',
-    createdat: new Date().toISOString(),
-  };
+  const user = await request<UserResponse>('/users/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      uname: data.uname.trim(),
+      email: data.email.trim(),
+      password: data.password,
+    }),
+  });
+  return user;
 }
 
 export async function getUser(userid: number): Promise<UserResponse> {
-  return {
-    userid: userid,
-    uname: 'SecurityUser',
-    email: 'user@phishradar.local',
-    ustatus: 'active',
-    createdat: new Date().toISOString(),
-  };
+  return request<UserResponse>(`/users/${userid}`);
 }
 
 export { ApiError };

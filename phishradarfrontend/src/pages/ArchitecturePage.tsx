@@ -40,7 +40,7 @@ export function ArchitecturePage() {
           fontWeight: 600,
           marginBottom: '16px',
         }}>
-          <span>⚡</span> Architectural Whitepaper
+          Architectural Whitepaper
         </div>
         <h1 style={{
           fontSize: 'clamp(2rem, 3.5vw, 2.8rem)',
@@ -61,7 +61,7 @@ export function ArchitecturePage() {
       {/* Pipeline Diagram Grid */}
       <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
         <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span>🔄</span> Multi-Stage Detection Pipeline
+          Multi-Stage Detection Pipeline
         </h2>
 
         <div style={{
@@ -137,7 +137,7 @@ export function ArchitecturePage() {
       {/* Decision Thresholds Matrix */}
       <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
         <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span>⚖️</span> Decision Matrix & Threshold Rules
+          Decision Matrix & Threshold Rules
         </h2>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
@@ -189,7 +189,7 @@ export function ArchitecturePage() {
         <div className="glass-panel" style={{ padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-              🤖 10 URL Machine Learning Features
+              10 URL Machine Learning Features
             </h3>
             <span className="badge badge-neutral">RandomForest</span>
           </div>
@@ -224,7 +224,7 @@ export function ArchitecturePage() {
         <div className="glass-panel" style={{ padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-              📐 8 Lexical Heuristic Rules
+              8 Lexical Heuristic Rules
             </h3>
             <span className="badge badge-neutral">Max Score: 100</span>
           </div>
