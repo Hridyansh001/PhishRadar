@@ -50,8 +50,14 @@ public class urlfeatureextractor {
 
         // 4. NoOfSubDomain: approximate count
         String[] domainParts = domain.split("\\.");
-        double noOfSubDomain =
-                Math.max(0, domainParts.length - 2);
+        int subdomains = Math.max(0, domainParts.length - 2);
+        // In the PhiUSIIL training dataset, benign domains were indexed with 'www.' prefix (counting as 1).
+        // For bare root domains (e.g. github.com), normalize to 1 so the lack of 'www.' does not falsely trigger
+        // the decision forest's no-subdomain phishing split.
+        if (subdomains == 0 && !domain.startsWith("www.") && domainParts.length == 2) {
+            subdomains = 1;
+        }
+        double noOfSubDomain = subdomains;
 
         // 5. HasObfuscation: provisional heuristic
         double hasObfuscation =

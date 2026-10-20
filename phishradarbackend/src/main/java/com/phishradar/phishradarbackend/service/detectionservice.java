@@ -34,12 +34,48 @@ public class detectionservice {
         this.mldetectionservice = mldetectionservice;
     }
 
+    private static final java.util.Set<String> TRUSTED_DOMAINS = java.util.Set.of(
+            "google.com", "youtube.com", "github.com", "microsoft.com", "apple.com",
+            "wikipedia.org", "amazon.com", "twitter.com", "x.com", "facebook.com",
+            "instagram.com", "linkedin.com", "reddit.com", "netflix.com", "yahoo.com",
+            "bing.com", "duckduckgo.com", "cloudflare.com", "stackoverflow.com",
+            "npmjs.com", "brave.com", "mozilla.org", "gitlab.com", "bitbucket.org",
+            "paypal.com", "medium.com", "spotify.com", "slack.com", "zoom.us",
+            "dropbox.com", "adobe.com", "salesforce.com", "cnn.com", "nytimes.com",
+            "bbc.com", "bbc.co.uk", "whatsapp.com", "twitch.tv", "vimeo.com"
+    );
+
+    private boolean isTrustedDomain(String hostname) {
+        if (hostname == null || hostname.isBlank()) return false;
+        String clean = hostname.toLowerCase().trim();
+        if (clean.startsWith("www.")) {
+            clean = clean.substring(4);
+        }
+        if (TRUSTED_DOMAINS.contains(clean)) {
+            return true;
+        }
+        for (String trusted : TRUSTED_DOMAINS) {
+            if (clean.endsWith("." + trusted)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Transactional
     public Map<String, Object> analyzeurl(String url, Integer userid)
     {
         if(url==null||url.isEmpty())
             throw new IllegalArgumentException("url cant be emtpy");
         users user = usersrepository.findById(userid).orElseThrow(()->new IllegalArgumentException("user not found"));
+
+        URI uri = URI.create(url.trim());
+        String domain = uri.getHost();
+
+        if(domain==null || domain.isBlank())
+        {
+            throw new IllegalArgumentException("url cant be empty");
+        }
 
         List<String> findings  = regexdetectionservice.analyzeurl(url);
 
@@ -53,53 +89,54 @@ public class detectionservice {
         String regexresult =
                 findings.isEmpty() ? "PASS" : "SUSPICIOUS";
 
-        mldetectionservice.Prediction prediction;
-
-        try {
-            prediction = mldetectionservice.predict(url);
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "ML prediction failed. Detection was not completed.", e);
-        }
-
-        String mlresult = prediction.classification().toUpperCase();
-
-        double mlProbability = prediction.phishingProbability();
-
-// Combine the signals without treating either as definitive.
-        int riskscore = (int) Math.round(
-                0.5 * regexScore + 0.5 * mlProbability);
-
-        riskscore = Math.max(0, Math.min(100, riskscore));
-
+        String mlresult;
+        double mlProbability;
+        int riskscore;
         String finalresult;
-
-        if (mlProbability >= 80 || riskscore >= 60) {
-            finalresult = "SUSPICIOUS";
-        } else if (mlProbability >= 50 || riskscore >= 30) {
-            finalresult = "REVIEW";
-        } else {
-            finalresult = "SAFE";
-        }
-
-
         String actiontaken;
 
-        switch (finalresult) {
-            case "SUSPICIOUS":
-                actiontaken = "WARNING";
-                break;
-            case "REVIEW":
-                actiontaken = "REVIEW";
-                break;
-            default:
-                actiontaken = "ALLOWED";
-        }        URI uri = URI.create(url.trim());
-        String domain = uri.getHost();
+        // If this is a verified global high-authority domain and has no high-risk heuristic flags,
+        // prevent false positive ML triggers.
+        boolean trusted = isTrustedDomain(domain)
+                && !findings.contains("IP_ADDRESS_IN_URL")
+                && !findings.contains("HIGHLY_SUSPICIOUS_DOMAIN")
+                && !findings.contains("SUSPICIOUS_TLD");
 
-        if(domain==null || domain.isBlank())
-        {
-            throw new IllegalArgumentException("url cant be empty");
+        if (trusted) {
+            mlresult = "LEGITIMATE";
+            mlProbability = 0.0;
+            riskscore = Math.min(regexScore, 10);
+            finalresult = "SAFE";
+            actiontaken = "ALLOWED";
+        } else {
+            mldetectionservice.Prediction prediction;
+            try {
+                prediction = mldetectionservice.predict(url);
+            } catch (Exception e) {
+                throw new IllegalStateException(
+                        "ML prediction failed. Detection was not completed.", e);
+            }
+
+            mlresult = prediction.classification().toUpperCase();
+            mlProbability = prediction.phishingProbability();
+
+            // Balanced hybrid score combining regex heuristics and ML probabilities
+            riskscore = (int) Math.round(0.5 * regexScore + 0.5 * mlProbability);
+            riskscore = Math.max(0, Math.min(100, riskscore));
+
+            // Hybrid decision: require corroboration or definitive heuristic red flags before blocking
+            if (riskscore >= 60 || (regexScore >= 35 && mlProbability >= 50)
+                    || findings.contains("HIGHLY_SUSPICIOUS_DOMAIN")
+                    || findings.contains("IP_ADDRESS_IN_URL")) {
+                finalresult = "SUSPICIOUS";
+                actiontaken = "WARNING";
+            } else if (riskscore >= 30 || regexScore >= 20 || mlProbability >= 70) {
+                finalresult = "REVIEW";
+                actiontaken = "REVIEW";
+            } else {
+                finalresult = "SAFE";
+                actiontaken = "ALLOWED";
+            }
         }
 
         String protocol = uri.getScheme();
