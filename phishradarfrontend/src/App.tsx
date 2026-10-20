@@ -1,6 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { ScannerPage } from './pages/ScannerPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -17,14 +19,76 @@ export function App() {
 
           <main style={{ flex: 1 }}>
             <Routes>
-              <Route path="/" element={<ScannerPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/architecture" element={<ArchitecturePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signin" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/register" element={<SignupPage />} />
+              {/* Protected Routes: Authentication is strictly required */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <ScannerPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <ProtectedRoute>
+                    <HistoryPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/architecture"
+                element={
+                  <ProtectedRoute>
+                    <ArchitecturePage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Public/Auth Routes: Only accessible when logged out */}
+              <Route
+                path="/login"
+                element={
+                  <PublicOnlyRoute>
+                    <LoginPage />
+                  </PublicOnlyRoute>
+                }
+              />
+              <Route
+                path="/signin"
+                element={
+                  <PublicOnlyRoute>
+                    <LoginPage />
+                  </PublicOnlyRoute>
+                }
+              />
+              <Route
+                path="/signup"
+                element={
+                  <PublicOnlyRoute>
+                    <SignupPage />
+                  </PublicOnlyRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PublicOnlyRoute>
+                    <SignupPage />
+                  </PublicOnlyRoute>
+                }
+              />
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
 

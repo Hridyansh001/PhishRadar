@@ -35,15 +35,22 @@ const SKIP_PROTOCOLS = new Set([
  * Check if real-time protection is toggled on.
  */
 async function isProtectionEnabled() {
-  const data = await chrome.storage.local.get('protectionEnabled');
-  return data.protectionEnabled !== false; // Default: ON
+  const data = await chrome.storage.local.get(['protectionEnabled', 'phishradar_user']);
+  // Extension protection is only active if protection is enabled AND user is logged in
+  if (!data.phishradar_user) {
+    return false;
+  }
+  return data.protectionEnabled !== false; // Default: ON when logged in
 }
 
 /**
- * Get configured user ID for backend detection endpoint (default 1).
+ * Get configured user ID for backend detection endpoint.
  */
 async function getConfiguredUserId() {
-  const data = await chrome.storage.local.get('userId');
+  const data = await chrome.storage.local.get(['phishradar_user', 'userId']);
+  if (data.phishradar_user && data.phishradar_user.userid) {
+    return parseInt(data.phishradar_user.userid, 10);
+  }
   return data.userId ? parseInt(data.userId, 10) : 1;
 }
 
@@ -217,8 +224,76 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 });
 
+/**
+ * Helper to open or focus a PhishRadar frontend tab.
+ */
+async function openOrFocusTab(targetUrl) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const existing = tabs.find(t => {
+      try {
+        const u = new URL(t.url);
+        return (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && (u.port === '5173' || u.port === '3000');
+      } catch {
+        return false;
+      }
+    });
+
+    if (existing && existing.id) {
+      await chrome.tabs.update(existing.id, { url: targetUrl, active: true });
+      if (existing.windowId) {
+        await chrome.windows.update(existing.windowId, { focused: true });
+      }
+      return existing;
+    }
+  } catch {
+    // Fall back to creating a new tab
+  }
+  return chrome.tabs.create({ url: targetUrl });
+}
+
+/**
+ * Actively inspect open dashboard tabs to retrieve logged in user session.
+ */
+async function checkTabsForAuth() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.url || !tab.id) continue;
+      try {
+        const u = new URL(tab.url);
+        if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && (u.port === '5173' || u.port === '3000')) {
+          if (chrome.scripting) {
+            const results = await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              func: () => {
+                try {
+                  const raw = localStorage.getItem('phishradar_user');
+                  return raw ? JSON.parse(raw) : null;
+                } catch {
+                  return null;
+                }
+              }
+            });
+            if (results && results[0] && results[0].result) {
+              const user = results[0].result;
+              await chrome.storage.local.set({ phishradar_user: user, userId: user.userid });
+              return user;
+            }
+          }
+        }
+      } catch {
+        // Ignore single tab errors
+      }
+    }
+  } catch {
+    // Ignore query errors
+  }
+  return null;
+}
+
 // ==========================================
-// Message Handling (from popup & warning)
+// Message Handling (from popup, content & warning)
 // ==========================================
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -243,11 +318,76 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  // Auth synchronization from content script or popup
+  if (message.type === 'SYNC_USER_FROM_PAGE') {
+    if (message.user) {
+      chrome.storage.local.set({
+        phishradar_user: message.user,
+        userId: message.user.userid
+      }).then(() => {
+        sendResponse({ ok: true, user: message.user });
+      });
+    } else {
+      chrome.storage.local.remove(['phishradar_user', 'userId']).then(() => {
+        sendResponse({ ok: true, user: null });
+      });
+    }
+    return true;
+  }
+
+  if (message.type === 'GET_AUTH_STATE') {
+    chrome.storage.local.get(['phishradar_user', 'userId']).then(data => {
+      sendResponse({
+        isAuthenticated: !!data.phishradar_user,
+        user: data.phishradar_user || null,
+        userId: data.userId || null
+      });
+    });
+    return true;
+  }
+
+  if (message.type === 'LOGOUT_USER') {
+    chrome.storage.local.remove(['phishradar_user', 'userId']).then(() => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'CHECK_OPEN_TABS_AUTH') {
+    checkTabsForAuth().then(user => {
+      sendResponse({ user, isAuthenticated: !!user });
+    });
+    return true;
+  }
+
+  // Navigation redirects to frontend web dashboard
+  if (message.type === 'OPEN_DASHBOARD_LOGIN') {
+    openOrFocusTab('http://localhost:5173/login?source=extension').then(() => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'OPEN_DASHBOARD_SIGNUP') {
+    openOrFocusTab('http://localhost:5173/signup?source=extension').then(() => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'OPEN_DASHBOARD') {
+    openOrFocusTab('http://localhost:5173/dashboard').then(() => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
 });
 
 // Initialize default settings on install
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    chrome.storage.local.set({ protectionEnabled: true, userId: 1 });
+    // Only set protection toggle preference; user must login before protection activates
+    chrome.storage.local.set({ protectionEnabled: true });
   }
 });

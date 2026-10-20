@@ -26,24 +26,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserState(newUser);
     if (newUser) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+      document.documentElement.setAttribute('data-phishradar-user', JSON.stringify(newUser));
     } else {
       localStorage.removeItem(STORAGE_KEY);
+      document.documentElement.removeAttribute('data-phishradar-user');
     }
+
+    // Broadcast for extension content script and other listeners
+    window.postMessage({ type: 'PHISHRADAR_AUTH_SYNC', user: newUser }, '*');
+    window.dispatchEvent(new CustomEvent('phishradar-auth-sync', { detail: { user: newUser } }));
   };
 
   const logout = () => {
     setUser(null);
   };
 
+  // Sync user state to DOM and postMessage whenever it changes
+  useEffect(() => {
+    if (user) {
+      document.documentElement.setAttribute('data-phishradar-user', JSON.stringify(user));
+      window.postMessage({ type: 'PHISHRADAR_AUTH_SYNC', user }, '*');
+    } else {
+      document.documentElement.removeAttribute('data-phishradar-user');
+      window.postMessage({ type: 'PHISHRADAR_AUTH_SYNC', user: null }, '*');
+    }
+  }, [user]);
+
+  // Set up storage and message listeners on mount
   useEffect(() => {
     // Sync across tabs
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) {
-        setUserState(e.newValue ? JSON.parse(e.newValue) : null);
+        try {
+          const parsed = e.newValue ? JSON.parse(e.newValue) : null;
+          setUserState(parsed);
+          if (parsed) {
+            document.documentElement.setAttribute('data-phishradar-user', JSON.stringify(parsed));
+          } else {
+            document.documentElement.removeAttribute('data-phishradar-user');
+          }
+        } catch {
+          setUserState(null);
+        }
       }
     };
+
+    // Listen for extension sync if extension sends message to webpage
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'PHISHRADAR_AUTH_SYNC_FROM_EXT') {
+        const extUser = e.data.user || null;
+        setUserState(extUser);
+        if (extUser) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(extUser));
+          document.documentElement.setAttribute('data-phishradar-user', JSON.stringify(extUser));
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+          document.documentElement.removeAttribute('data-phishradar-user');
+        }
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('message', handleMessage);
+    };
   }, []);
 
   return (

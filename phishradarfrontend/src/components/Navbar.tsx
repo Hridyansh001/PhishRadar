@@ -1,17 +1,24 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './AuthModal';
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const navLinks = [
-    { path: '/', label: 'Live Scanner', icon: 'search' },
     { path: '/dashboard', label: 'Security Dashboard', icon: 'chart' },
+    { path: '/', label: 'Live Scanner', icon: 'search' },
     { path: '/history', label: 'Detection Logs', icon: 'log' },
+    { path: '/architecture', label: 'Architecture', icon: 'log' },
   ];
 
   const icons: Record<string, ReactNode> = {
@@ -60,7 +67,20 @@ export function Navbar() {
           gap: '32px',
         }}>
           {/* Brand */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to={isAuthenticated ? '/dashboard' : '/login'} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              backgroundColor: '#000000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
             <span style={{
               fontSize: '1.25rem',
               fontWeight: 700,
@@ -71,36 +91,43 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Navigation */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {navLinks.map((link) => {
-              const isActive = location.pathname === link.path;
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '6px',
-                    fontSize: '0.92rem',
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#000000' : '#4b5563',
-                    background: isActive ? '#f3f4f6' : 'transparent',
-                    border: isActive ? '1px solid #e5e7eb' : '1px solid transparent',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {icons[link.icon]}
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          {/* Navigation - Only visible when authenticated */}
+          {isAuthenticated ? (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.path;
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      fontSize: '0.92rem',
+                      fontWeight: isActive ? 700 : 500,
+                      color: isActive ? '#000000' : '#4b5563',
+                      background: isActive ? '#f3f4f6' : 'transparent',
+                      border: isActive ? '1px solid #e5e7eb' : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {icons[link.icon]}
+                    <span>{link.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 500 }}>
+              Real-Time Phishing Threat Protection Platform
+            </div>
+          )}
 
-          {/* User */}
+          {/* User Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {isAuthenticated && user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -129,7 +156,7 @@ export function Navbar() {
                   </div>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   style={{
                     padding: '6px 14px',
                     fontSize: '0.85rem',

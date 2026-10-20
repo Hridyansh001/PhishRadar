@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { register, ApiError } from '../services/api';
 
 export function SignupPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [uname, setUname] = useState('');
   const [email, setEmail] = useState('');
@@ -13,6 +14,8 @@ export function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const isFromExtension = new URLSearchParams(location.search).get('source') === 'extension';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +36,7 @@ export function SignupPage() {
     try {
       const user = await register({ uname, email, password });
       setUser(user);
-      navigate('/');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -101,6 +104,31 @@ export function SignupPage() {
             Register to receive a unique telemetry ID and record scans in MySQL
           </p>
         </div>
+
+        {/* Extension Banner */}
+        {isFromExtension && (
+          <div style={{
+            padding: '12px 14px',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '6px',
+            color: '#1d4ed8',
+            fontSize: '0.86rem',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            lineHeight: 1.4,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <div>
+              <span style={{ fontWeight: 700 }}>Extension Link: </span>
+              Creating an account will automatically link and activate your PhishRadar browser extension.
+            </div>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (

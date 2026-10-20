@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login, ApiError } from '../services/api';
 
 export function LoginPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const isFromExtension = new URLSearchParams(location.search).get('source') === 'extension';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +23,8 @@ export function LoginPage() {
     try {
       const user = await login({ email, password });
       setUser(user);
-      navigate('/');
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -86,6 +90,31 @@ export function LoginPage() {
             Access threat analysis records and live URL scanner telemetry
           </p>
         </div>
+
+        {/* Extension Banner */}
+        {isFromExtension && (
+          <div style={{
+            padding: '12px 14px',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '6px',
+            color: '#1d4ed8',
+            fontSize: '0.86rem',
+            marginBottom: '18px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            lineHeight: 1.4,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <div>
+              <span style={{ fontWeight: 700 }}>Extension Link: </span>
+              Signing in here will automatically unlock and activate your PhishRadar browser extension.
+            </div>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
