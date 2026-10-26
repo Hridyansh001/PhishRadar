@@ -133,19 +133,22 @@ async function scanUrl(url) {
 
 /**
  * Determine if a scan result warrants blocking the user.
+ * Tiers:
+ *   score < 20  → SAFE   → let through (return false)
+ *   20 ≤ score < 60 → SUSPICIOUS → block + review prompt (return true)
+ *   score ≥ 60  → HIGH RISK → block hard (return true)
  */
 function isDangerous(result, url) {
-  if (!result || result.error) return false; // Fail open on errors
-  if (shouldSkipUrl(url)) return false; // Never block trusted domains
+  if (!result || result.error) return false; // Fail open on backend errors
+  if (shouldSkipUrl(url)) return false;      // Never block trusted / internal URLs
 
-  const score = Number(result.risckscore ?? result.riskscore ?? result.riskScore ?? 0);
+  const score = Number(
+    result.risckscore ?? result.riskscore ?? result.riskScore ?? 0
+  );
   const isSuspicious = result.finalresult === 'SUSPICIOUS' || result.actiontaken === 'WARNING';
-  const isReview = result.finalresult === 'REVIEW' || result.actiontaken === 'REVIEW';
+  const isReview     = result.finalresult === 'REVIEW'     || result.actiontaken === 'REVIEW';
 
-  // Strict Threshold Enforcement:
-  // - Below 20: Safe and clean -> goes through without blocking (return false)
-  // - 20 to 60: Suspicious & requires review -> block & ask if user wants to continue (return true)
-  // - Above 60: Threats & phishing -> block (return true)
+  // Only block when score is in the suspicious/dangerous range OR backend flags it
   if (score >= 20 || isSuspicious || isReview) {
     return true;
   }
@@ -335,13 +338,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'BYPASS_URL') {
-    bypassedUrls.set(message.url, Date.now());
+    const now = Date.now();
+    bypassedUrls.set(message.url, now);
     try {
       const u = new URL(message.url);
-      bypassedUrls.set(u.origin, Date.now());
-      bypassedUrls.set(u.origin + '/', Date.now());
-      bypassedUrls.set(u.href, Date.now());
+      // Store multiple normalised forms so any variation is caught
+      bypassedUrls.set(u.origin, now);
+      bypassedUrls.set(u.origin + '/', now);
+      bypassedUrls.set(u.href, now);
+      // Also strip trailing slash
+      bypassedUrls.set(u.href.replace(/\/$/, ''), now);
+      // Store without query string for broad bypass
+      bypassedUrls.set(u.origin + u.pathname, now);
     } catch {}
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === 'GO_BACK_TO_SAFETY') {
+    // Navigate the active tab away from the warning page to Chrome new tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs.length > 0 && tabs[0].id) {
+        chrome.tabs.update(tabs[0].id, { url: 'chrome://newtab/' });
+      }
+    });
     sendResponse({ ok: true });
     return true;
   }
