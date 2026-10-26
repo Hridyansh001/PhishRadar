@@ -22,7 +22,6 @@ export function PixelTransition() {
 
     // Generate random order/delays
     const maxDelay = 0.45; // seconds
-    let completedCount = 0;
 
     blocks.forEach((block) => {
       if (!block) return;

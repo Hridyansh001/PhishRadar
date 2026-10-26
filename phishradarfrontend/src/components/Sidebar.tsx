@@ -179,20 +179,17 @@ export function Sidebar() {
 
       {/* Bottom: User Profile & Dedicated Sign Out Button */}
       <div style={{
-        padding: '16px',
-        borderTop: '1px solid #f3f4f6',
-        backgroundColor: '#fafafa',
+        padding: '16px 20px',
+        borderTop: '1px solid #e5e7eb',
+        backgroundColor: 'transparent',
       }}>
         {user && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            marginBottom: '14px',
-            padding: '8px 10px',
-            borderRadius: '6px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #e5e7eb',
+            marginBottom: '16px',
+            padding: '2px 0',
           }}>
             <div style={{
               width: '36px',
@@ -241,12 +238,12 @@ export function Sidebar() {
           onClick={handleLogout}
           style={{
             width: '100%',
-            padding: '9px 14px',
+            padding: '8px 12px',
             borderRadius: '6px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #d1d5db',
-            color: '#374151',
-            fontSize: '0.88rem',
+            backgroundColor: 'transparent',
+            border: '1px solid #e5e7eb',
+            color: '#4b5563',
+            fontSize: '0.85rem',
             fontWeight: 600,
             cursor: 'pointer',
             display: 'flex',
@@ -261,12 +258,12 @@ export function Sidebar() {
             e.currentTarget.style.color = '#dc2626';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#ffffff';
-            e.currentTarget.style.borderColor = '#d1d5db';
-            e.currentTarget.style.color = '#374151';
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderColor = '#e5e7eb';
+            e.currentTarget.style.color = '#4b5563';
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
             <line x1="21" y1="12" x2="9" y2="12"/>

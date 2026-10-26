@@ -118,13 +118,15 @@ export function FindingsBadge({ findingKey }: { findingKey: string }) {
             fontFamily: 'var(--font-mono)',
             padding: '2px 6px',
             borderRadius: '4px',
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            color: 'var(--text-muted)',
+            backgroundColor: '#ffffff',
+            border: `1px solid ${style.border}`,
+            color: style.color,
+            fontWeight: 700,
           }}>
             +{meta.score} pts
           </span>
         </div>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+        <p style={{ fontSize: '0.78rem', color: '#4b5563', marginTop: '2px' }}>
           {meta.description}
         </p>
       </div>

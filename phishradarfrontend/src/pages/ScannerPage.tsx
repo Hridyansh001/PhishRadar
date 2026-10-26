@@ -117,14 +117,11 @@ export function ScannerPage() {
         </p>
       </div>
 
-      {/* Search Bar Panel */}
+      {/* Search Bar Panel — Frameless */}
       <div style={{
-        padding: '24px',
-        backgroundColor: 'rgba(255, 255, 255, 0.94)',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
-        marginBottom: '28px',
+        padding: '0 0 24px 0',
+        marginBottom: '32px',
+        borderBottom: '1px solid #e5e7eb',
       }}>
         <div style={{
           display: 'flex',
@@ -222,12 +219,9 @@ export function ScannerPage() {
       {/* Generated Scan Result Card with Pie Chart Score Display */}
       {result && (
         <div style={{
-          padding: '28px',
-          marginBottom: '40px',
-          borderRadius: '12px',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)',
+          padding: '24px 0',
+          marginBottom: '36px',
+          borderBottom: '1px solid #e5e7eb',
           position: 'relative',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
@@ -327,17 +321,14 @@ export function ScannerPage() {
         </div>
       )}
 
-      {/* Aggregate Stats Row */}
+      {/* Aggregate Stats Row — Open Editorial */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '24px',
-        marginBottom: '40px',
-        padding: '24px',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+        marginBottom: '36px',
+        padding: '0 0 24px 0',
+        borderBottom: '1px solid #e5e7eb',
       }}>
         <div>
           <div style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>URLs Scanned</div>
@@ -353,13 +344,9 @@ export function ScannerPage() {
         </div>
       </div>
 
-      {/* Recent Scans Table Section */}
+      {/* Recent Scans Table Section — Frameless */}
       <div style={{
-        padding: '28px',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        padding: '8px 0 0 0',
       }}>
         <div style={{
           display: 'flex',

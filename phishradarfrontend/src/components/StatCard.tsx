@@ -75,21 +75,16 @@ export function StatCard({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      className="glass-panel"
       style={{
-        padding: '22px 24px',
+        padding: '16px 12px 20px 12px',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: '16px',
-        backgroundColor: isActive ? theme.activeBg : '#ffffff',
-        borderColor: theme.border,
-        borderWidth: isActive ? '2px' : '1px',
+        backgroundColor: 'transparent',
+        borderBottom: isActive ? `2px solid ${theme.border}` : '1px solid #e5e7eb',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.15s ease',
-        boxShadow: isActive
-          ? '0 4px 12px rgba(0, 0, 0, 0.06)'
-          : '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
       onKeyDown={(e) => {
         if (onClick && (e.key === 'Enter' || e.key === ' ')) {
@@ -99,7 +94,7 @@ export function StatCard({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <span style={{ fontSize: '0.85rem', color: '#4b5563', fontWeight: 600 }}>
             {title}
           </span>
@@ -118,17 +113,17 @@ export function StatCard({
         </div>
 
         <div style={{
-          fontSize: '2.1rem',
+          fontSize: '2.4rem',
           fontWeight: 800,
           color: theme.text,
-          lineHeight: 1.15,
+          lineHeight: 1.1,
           letterSpacing: '-0.02em',
         }}>
           {value}
         </div>
 
         {subtitle && (
-          <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '6px' }}>
             {subtitle}
           </div>
         )}
@@ -136,15 +131,12 @@ export function StatCard({
 
       {icon && (
         <div style={{
-          width: '42px',
-          height: '42px',
-          borderRadius: '8px',
-          backgroundColor: theme.iconBg,
           color: theme.iconColor,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
+          paddingTop: '4px',
         }}>
           {icon}
         </div>

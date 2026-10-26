@@ -103,12 +103,12 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Controls Bar: Search + Filters */}
+      {/* Controls Bar: Search + Filters — Open & Frameless */}
       <div
-        className="glass-panel"
         style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '0 0 20px 0',
+          marginBottom: '28px',
+          borderBottom: '1px solid #e5e7eb',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -118,7 +118,7 @@ export function HistoryPage() {
       >
         {/* Search */}
         <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', display: 'flex' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', display: 'flex' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -132,7 +132,7 @@ export function HistoryPage() {
             style={{
               width: '100%',
               padding: '10px 14px 10px 38px',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: '6px',
               backgroundColor: '#ffffff',
               border: '1px solid #d1d5db',
               color: '#111827',
@@ -149,13 +149,14 @@ export function HistoryPage() {
               key={verdict}
               onClick={() => setVerdictFilter(verdict)}
               style={{
-                padding: '8px 14px',
-                borderRadius: 'var(--radius-sm)',
+                padding: '7px 14px',
+                borderRadius: '6px',
                 fontSize: '0.82rem',
                 fontWeight: 600,
-                backgroundColor: verdictFilter === verdict ? '#000000' : '#ffffff',
+                backgroundColor: verdictFilter === verdict ? '#000000' : 'transparent',
                 color: verdictFilter === verdict ? '#ffffff' : '#374151',
                 border: verdictFilter === verdict ? '1px solid #000000' : '1px solid #d1d5db',
+                cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -165,16 +166,16 @@ export function HistoryPage() {
         </div>
       </div>
 
-      {/* History Table */}
-      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+      {/* History Table — Frameless */}
+      <div style={{ overflowX: 'auto', padding: '0' }}>
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>
+          <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>
             <div>Loading detection history from MySQL repository...</div>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>No matching records found</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b7280' }}>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', color: '#111827' }}>No matching records found</div>
+            <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '4px' }}>
               {history.length === 0 ? 'No scan history exists yet for this user.' : 'Try adjusting your search query or verdict filter.'}
             </div>
           </div>
@@ -183,22 +184,22 @@ export function HistoryPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  color: 'var(--text-dim)',
+                  borderBottom: '1px solid #e5e7eb',
+                  color: '#6b7280',
                   fontSize: '0.78rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
+                  backgroundColor: 'transparent',
                 }}>
-                  <th style={{ padding: '14px 20px' }}>ID</th>
-                  <th style={{ padding: '14px 20px' }}>Destination Domain / URL</th>
-                  <th style={{ padding: '14px 20px' }}>Final Verdict</th>
-                  <th style={{ padding: '14px 20px' }}>Risk Score</th>
-                  <th style={{ padding: '14px 20px' }}>ML Classifier</th>
-                  <th style={{ padding: '14px 20px' }}>Regex Verdict</th>
-                  <th style={{ padding: '14px 20px' }}>Action</th>
-                  <th style={{ padding: '14px 20px' }}>Logged At</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>ID</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Destination Domain / URL</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Final Verdict</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Risk Score</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>ML Classifier</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Regex Verdict</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Action</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600 }}>Logged At</th>
+                  <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,22 +207,22 @@ export function HistoryPage() {
                   <tr
                     key={item.did}
                     style={{
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                      borderBottom: '1px solid #f3f4f6',
                       transition: 'background-color 0.15s ease',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <td style={{ padding: '14px 20px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                    <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#6b7280' }}>
                       #{item.did}
                     </td>
-                    <td style={{ padding: '14px 20px', maxWidth: '340px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                    <td style={{ padding: '14px 16px', maxWidth: '340px' }}>
+                      <div style={{ fontWeight: 600, color: '#111827' }}>
                         {item.domain || 'Domain'}
                       </div>
                       <div style={{
                         fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
+                        color: '#6b7280',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -229,7 +230,7 @@ export function HistoryPage() {
                         {item.url || `Website Record #${item.wid}`}
                       </div>
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
+                    <td style={{ padding: '14px 16px' }}>
                       <span className={`badge ${
                         item.fresult === 'SUSPICIOUS' ? 'badge-danger' :
                         item.fresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
@@ -237,33 +238,33 @@ export function HistoryPage() {
                         {item.fresult}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                    <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
                       <span style={{
-                        color: item.riskscore >= 60 ? 'var(--danger-crimson)' :
-                          item.riskscore >= 30 ? 'var(--warning-amber)' : 'var(--safe-green)'
+                        color: item.riskscore >= 60 ? '#b91c1c' :
+                          item.riskscore >= 30 ? '#b45309' : '#15803d'
                       }}>
                         {item.riskscore} / 100
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: '0.85rem' }}>
-                      <span style={{ color: item.mlresult === 'PHISHING' ? '#f87171' : '#34d399', fontWeight: 500 }}>
+                    <td style={{ padding: '14px 16px', fontSize: '0.85rem' }}>
+                      <span style={{ color: item.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d', fontWeight: 600 }}>
                         {item.mlresult}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: '0.85rem' }}>
-                      <span style={{ color: item.rresult === 'SUSPICIOUS' ? '#fbbf24' : '#94a3b8' }}>
+                    <td style={{ padding: '14px 16px', fontSize: '0.85rem' }}>
+                      <span style={{ color: item.rresult === 'SUSPICIOUS' ? '#b45309' : '#6b7280', fontWeight: 500 }}>
                         {item.rresult}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
+                    <td style={{ padding: '14px 16px' }}>
                       <span className="badge badge-neutral" style={{ fontSize: '0.72rem' }}>
                         {item.actiontaken}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '14px 16px', fontSize: '0.8rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {item.detectedat ? new Date(item.detectedat).toLocaleString() : 'N/A'}
                     </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '8px' }}>
                         <button
                           onClick={() => setSelectedItem(item)}
@@ -278,7 +279,7 @@ export function HistoryPage() {
                               navigate(`/?url=${encodeURIComponent(item.url || '')}`);
                             }}
                             className="btn-secondary"
-                            style={{ padding: '6px 12px', fontSize: '0.78rem', color: 'var(--radar-cyan)' }}
+                            style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#111827' }}
                             title="Run fresh scan on this URL"
                           >
                             Re-Scan
@@ -308,13 +309,13 @@ export function HistoryPage() {
           padding: '20px',
         }}>
           <div
-            className="glass-panel"
             style={{
               width: '100%',
               maxWidth: '560px',
               padding: '30px',
               backgroundColor: '#ffffff',
-              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
               position: 'relative',
             }}
@@ -339,37 +340,37 @@ export function HistoryPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
-              <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>DESTINATION URL:</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.88rem' }}>
+              <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DESTINATION URL:</span>
                 <span style={{ color: '#111827', wordBreak: 'break-all', fontWeight: 600 }}>
                   {selectedItem.url || 'Not recorded'}
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>COMBINED RISK SCORE:</span>
+                <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>COMBINED RISK SCORE:</span>
                   <span style={{ fontWeight: 700, fontSize: '1.1rem', color: selectedItem.riskscore >= 60 ? '#b91c1c' : '#15803d' }}>
                     {selectedItem.riskscore} / 100
                   </span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>ACTION APPLIED:</span>
+                <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>ACTION APPLIED:</span>
                   <span style={{ fontWeight: 600, color: '#111827' }}>{selectedItem.actiontaken}</span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>ML CLASSIFICATION:</span>
+                <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>ML CLASSIFICATION:</span>
                   <span style={{ fontWeight: 600, color: selectedItem.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d' }}>{selectedItem.mlresult}</span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>REGEX VERDICT:</span>
+                <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>REGEX VERDICT:</span>
                   <span style={{ fontWeight: 600, color: selectedItem.rresult === 'SUSPICIOUS' ? '#b45309' : '#15803d' }}>{selectedItem.rresult}</span>
                 </div>
               </div>
 
-              <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem' }}>DATABASE TIMESTAMP:</span>
+              <div style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>DATABASE TIMESTAMP:</span>
                 <span style={{ color: '#111827' }}>{selectedItem.detectedat || 'N/A'}</span>
               </div>
             </div>

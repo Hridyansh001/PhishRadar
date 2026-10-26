@@ -192,12 +192,11 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Quick Inspection Card - High Utility & Clean */}
-      <div className="glass-panel" style={{
-        padding: '24px',
-        marginBottom: '28px',
-        border: '1px solid #e5e7eb',
-        borderRadius: 'var(--radius-lg)',
+      {/* Quick Inspection Section - Clean & Frameless */}
+      <div style={{
+        padding: '0 0 28px 0',
+        marginBottom: '32px',
+        borderBottom: '1px solid #e5e7eb',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
@@ -456,7 +455,7 @@ export function DashboardPage() {
         marginBottom: '28px',
       }}>
         {/* Left: Threat Severity Breakdown */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div style={{ padding: '0 0 24px 0', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827' }}>
               Verdict Ratio & Threat Breakdown
@@ -520,7 +519,7 @@ export function DashboardPage() {
         </div>
 
         {/* Right: Security & Defense Overview */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div style={{ padding: '0 0 24px 0', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827' }}>
               Protection Summary & Active Defense
@@ -532,15 +531,13 @@ export function DashboardPage() {
             Autonomous protection mechanisms defending your web browsing experience.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12px 14px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '6px',
-              border: '1px solid #e5e7eb',
+              padding: '10px 0',
+              borderBottom: '1px solid #f3f4f6',
             }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
@@ -559,10 +556,8 @@ export function DashboardPage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12px 14px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '6px',
-              border: '1px solid #e5e7eb',
+              padding: '10px 0',
+              borderBottom: '1px solid #f3f4f6',
             }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
@@ -581,10 +576,8 @@ export function DashboardPage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12px 14px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '6px',
-              border: '1px solid #e5e7eb',
+              padding: '10px 0',
+              borderBottom: '1px solid #f3f4f6',
             }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
@@ -602,8 +595,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Detections Feed */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
+      {/* Recent Detections Feed — Frameless */}
+      <div style={{ padding: '16px 0 0 0' }}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -870,13 +863,13 @@ export function DashboardPage() {
           padding: '20px',
         }}>
           <div
-            className="glass-panel"
             style={{
               width: '100%',
               maxWidth: '540px',
               padding: '28px',
               backgroundColor: '#ffffff',
-              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               position: 'relative',
             }}
