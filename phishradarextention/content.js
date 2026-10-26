@@ -146,4 +146,44 @@
       return true;
     }
   });
+
+  // ── Real-Time Page Load Verification ───────────────────────────────────
+  // Catches any page load that escaped onBeforeNavigate (e.g. autofill prerender, fast link clicks)
+  (function verifyCurrentPage() {
+    const href = window.location.href;
+    if (!href || (!href.startsWith('http://') && !href.startsWith('https://'))) {
+      return;
+    }
+    if (isPhishRadarPage()) {
+      return;
+    }
+
+    try {
+      chrome.runtime.sendMessage({
+        type: 'VERIFY_PAGE_LOAD',
+        url: href
+      }, (res) => {
+        if (chrome.runtime.lastError) return;
+        if (res && res.isDangerous && res.warningUrl) {
+          window.location.replace(res.warningUrl);
+        }
+      });
+    } catch {}
+  })();
+
+  // ── Global Link Click Interceptor ──────────────────────────────────────
+  // When clicking an external link, proactively notify background to begin scanning
+  document.addEventListener('click', (e) => {
+    try {
+      const anchor = e.target.closest('a[href]');
+      if (!anchor || !anchor.href) return;
+      const href = anchor.href;
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        chrome.runtime.sendMessage({
+          type: 'LINK_CLICKED',
+          url: href
+        }).catch(() => {});
+      }
+    } catch {}
+  }, true);
 })();

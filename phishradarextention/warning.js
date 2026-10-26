@@ -63,7 +63,12 @@
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = text || '—';
-    if (cls) el.classList.add(cls);
+    if (typeof cls === 'string') {
+      const cleanCls = cls.trim();
+      if (cleanCls.length > 0 && !/\s/.test(cleanCls)) {
+        el.classList.add(cleanCls);
+      }
+    }
   }
 
   function verdictColor(v) {

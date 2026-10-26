@@ -221,7 +221,7 @@ public class detectionservice {
 // Fix: create a final variable for use inside the lambda
         final String urlForSave = normalizedUrl;
 
-        website site = websiterepository.findByUrl(normalizedUrl).orElseGet(() -> {
+        website site = websiterepository.findFirstByUrl(normalizedUrl).orElseGet(() -> {
             website newsite = new website();
             newsite.setUrl(urlForSave);
             newsite.setDomain(domain);

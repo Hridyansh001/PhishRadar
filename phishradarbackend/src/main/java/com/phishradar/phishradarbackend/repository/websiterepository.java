@@ -6,7 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface websiterepository extends JpaRepository<website, Integer> {
+    Optional<website> findFirstByUrl(String url);
+
     Optional<website> findByUrl(String url);
+
+    Optional<website> findFirstByDomain(String domain);
 
     Optional<website> findByDomain(String domain);
 }

@@ -119,7 +119,7 @@ async function init() {
         await chrome.storage.local.set({ phishradar_user: bgRes.user, userId: bgRes.user.userid });
         return bgRes.user;
       }
-    } catch {}
+    } catch { }
 
     return null;
   }
@@ -161,7 +161,7 @@ async function init() {
         await chrome.storage.local.set({ phishradar_user: res.user, userId: res.user.userid });
         return res.user;
       }
-    } catch {}
+    } catch { }
 
     return null;
   }
@@ -261,7 +261,7 @@ async function init() {
           try {
             const errJson = await response.json();
             if (errJson.error) errText = errJson.error;
-          } catch {}
+          } catch { }
           throw new Error(errText);
         }
 

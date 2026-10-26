@@ -4,8 +4,8 @@
 const API_BASE = 'http://localhost:8080/api';
 const SCAN_TIMEOUT_MS = 6000;
 
-// Set of URLs the user has explicitly chosen to bypass for this session
-const bypassedUrls = new Map();
+// Tab-specific temporary single-use bypasses (valid for 20s for the specific tab that clicked Continue)
+const tabOneTimeBypasses = new Map();
 
 // In-memory cache of recent scan results to minimize redundant requests
 const scanCache = new Map();
@@ -146,7 +146,7 @@ function isDangerous(result, url) {
     result.risckscore ?? result.riskscore ?? result.riskScore ?? 0
   );
   const isSuspicious = result.finalresult === 'SUSPICIOUS' || result.actiontaken === 'WARNING';
-  const isReview     = result.finalresult === 'REVIEW'     || result.actiontaken === 'REVIEW';
+  const isReview = result.finalresult === 'REVIEW' || result.actiontaken === 'REVIEW';
 
   // Only block when score is in the suspicious/dangerous range OR backend flags it
   if (score >= 20 || isSuspicious || isReview) {
@@ -180,11 +180,10 @@ function getWarningPageUrl(originalUrl, scanResult) {
  * Clean up expired bypass entries periodically.
  */
 function cleanupExpired() {
-  const BYPASS_TTL_MS = 30 * 60 * 1000; // 30 minutes
   const now = Date.now();
-  for (const [url, timestamp] of bypassedUrls) {
-    if (now - timestamp > BYPASS_TTL_MS) {
-      bypassedUrls.delete(url);
+  for (const [tabId, entry] of tabOneTimeBypasses) {
+    if (now >= entry.expiresAt) {
+      tabOneTimeBypasses.delete(tabId);
     }
   }
   for (const [url, entry] of scanCache) {
@@ -194,23 +193,42 @@ function cleanupExpired() {
   }
 }
 
-setInterval(cleanupExpired, 60 * 1000);
+setInterval(cleanupExpired, 10 * 1000);
 
 // ==========================================
-// Navigation Interception via webNavigation & tabs
+// Navigation Interception via webNavigation, tabs & content
 // ==========================================
 
 const inflightScans = new Set();
 
-function isBypassed(url) {
-  if (!url) return false;
-  if (bypassedUrls.has(url)) return true;
+function normalizeUrl(url) {
+  if (!url) return '';
   try {
     const u = new URL(url);
-    if (bypassedUrls.has(u.origin) || bypassedUrls.has(u.origin + '/') || bypassedUrls.has(u.href)) {
-      return true;
+    const path = u.pathname.replace(/\/$/, '');
+    return `${u.protocol}//${u.hostname}${path}`.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase().replace(/\/$/, '');
+  }
+}
+
+function isBypassed(url, tabId) {
+  if (!url) return false;
+  const now = Date.now();
+  const norm = normalizeUrl(url);
+
+  // Tab-scoped one-time bypass (from clicking "Continue Anyway" on the warning interstitial)
+  if (tabId && tabOneTimeBypasses.has(tabId)) {
+    const entry = tabOneTimeBypasses.get(tabId);
+    if (now < entry.expiresAt) {
+      if (normalizeUrl(entry.url) === norm) {
+        return true;
+      }
+    } else {
+      tabOneTimeBypasses.delete(tabId);
     }
-  } catch {}
+  }
+
   return false;
 }
 
@@ -218,12 +236,13 @@ async function handleNavigation(tabId, url) {
   if (!url || !tabId) return;
   if (shouldSkipUrl(url)) return;
   if (url.startsWith(chrome.runtime.getURL('warning.html'))) return;
-  if (isBypassed(url)) return;
+  if (isBypassed(url, tabId)) return;
 
   const enabled = await isProtectionEnabled();
   if (!enabled) return;
 
-  const dedupeKey = `${tabId}:${url}`;
+  const norm = normalizeUrl(url);
+  const dedupeKey = `${tabId}:${norm}`;
   if (inflightScans.has(dedupeKey)) return;
   inflightScans.add(dedupeKey);
 
@@ -231,7 +250,7 @@ async function handleNavigation(tabId, url) {
     const result = await scanUrl(url);
 
     if (isDangerous(result, url)) {
-      if (!isBypassed(url)) {
+      if (!isBypassed(url, tabId)) {
         const warningUrl = getWarningPageUrl(url, result);
         chrome.tabs.update(tabId, { url: warningUrl });
       }
@@ -239,19 +258,37 @@ async function handleNavigation(tabId, url) {
   } catch (err) {
     console.error('[PhishRadar] Navigation scan error:', err);
   } finally {
-    setTimeout(() => inflightScans.delete(dedupeKey), 2500);
+    // Delete immediately on completion so future attempts to the same site are never blocked by stale keys
+    inflightScans.delete(dedupeKey);
   }
 }
 
+// 1. Navigation starts (catches manual address bar typing & initial link clicks)
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId === 0 && details.url) {
+  if (details.url && (details.frameId === 0 || details.frameType === 'outermost_frame' || details.frameType === 'prerender')) {
     handleNavigation(details.tabId, details.url);
   }
 });
 
+// 2. Navigation committed (catches autofill-and-enter, prerender activation, and redirects)
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (details.url && (details.frameId === 0 || details.frameType === 'outermost_frame')) {
+    handleNavigation(details.tabId, details.url);
+  }
+});
+
+// 3. In-page & SPA history navigation (catches link clicks in modern web applications)
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  if (details.url && (details.frameId === 0 || details.frameType === 'outermost_frame')) {
+    handleNavigation(details.tabId, details.url);
+  }
+});
+
+// 4. Tab URL updates (catches link clicks in existing or new tabs where changeInfo.url or tab.url updates)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    handleNavigation(tabId, changeInfo.url);
+  const targetUrl = changeInfo.url || (changeInfo.status === 'loading' && tab && tab.url ? tab.url : null);
+  if (targetUrl) {
+    handleNavigation(tabId, targetUrl);
   }
 });
 
@@ -338,31 +375,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'BYPASS_URL') {
-    const now = Date.now();
-    bypassedUrls.set(message.url, now);
-    try {
-      const u = new URL(message.url);
-      // Store multiple normalised forms so any variation is caught
-      bypassedUrls.set(u.origin, now);
-      bypassedUrls.set(u.origin + '/', now);
-      bypassedUrls.set(u.href, now);
-      // Also strip trailing slash
-      bypassedUrls.set(u.href.replace(/\/$/, ''), now);
-      // Store without query string for broad bypass
-      bypassedUrls.set(u.origin + u.pathname, now);
-    } catch {}
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId && message.url) {
+      tabOneTimeBypasses.set(tabId, {
+        url: message.url,
+        expiresAt: Date.now() + 20000 // 20-second window strictly for this tab
+      });
+    }
     sendResponse({ ok: true });
     return true;
   }
 
   if (message.type === 'GO_BACK_TO_SAFETY') {
-    // Navigate the active tab away from the warning page to Chrome new tab
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId) {
+      tabOneTimeBypasses.delete(tabId);
+    }
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs && tabs.length > 0 && tabs[0].id) {
+        tabOneTimeBypasses.delete(tabs[0].id);
         chrome.tabs.update(tabs[0].id, { url: 'chrome://newtab/' });
       }
     });
     sendResponse({ ok: true });
+    return true;
+  }
+
+  // Pre-scan when user clicks an external link on any webpage
+  if (message.type === 'LINK_CLICKED') {
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId && message.url) {
+      handleNavigation(tabId, message.url);
+    }
+    return false;
+  }
+
+  // Real-time verification when a page loads (catches autofill prerenders, fast link clicks)
+  if (message.type === 'VERIFY_PAGE_LOAD') {
+    const tabId = sender.tab ? sender.tab.id : null;
+    const url = message.url;
+    if (!url || shouldSkipUrl(url) || isBypassed(url, tabId)) {
+      sendResponse({ isDangerous: false });
+      return true;
+    }
+    isProtectionEnabled().then(async (enabled) => {
+      if (!enabled) {
+        sendResponse({ isDangerous: false });
+        return;
+      }
+      try {
+        const result = await scanUrl(url);
+        if (isDangerous(result, url) && !isBypassed(url, tabId)) {
+          const warningUrl = getWarningPageUrl(url, result);
+          sendResponse({ isDangerous: true, warningUrl });
+        } else {
+          sendResponse({ isDangerous: false });
+        }
+      } catch {
+        sendResponse({ isDangerous: false });
+      }
+    });
     return true;
   }
 
