@@ -62,6 +62,33 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+const TRUSTED_DOMAINS = new Set([
+  'google.com', 'youtube.com', 'github.com', 'microsoft.com', 'apple.com',
+  'wikipedia.org', 'amazon.com', 'twitter.com', 'x.com', 'facebook.com',
+  'instagram.com', 'linkedin.com', 'reddit.com', 'netflix.com', 'yahoo.com',
+  'bing.com', 'duckduckgo.com', 'cloudflare.com', 'stackoverflow.com',
+  'npmjs.com', 'brave.com', 'mozilla.org', 'gitlab.com', 'bitbucket.org'
+]);
+
+function isTrustedAuthority(domainOrUrl: string): boolean {
+  try {
+    let hostname = domainOrUrl.trim().toLowerCase();
+    if (hostname.includes('://')) {
+      hostname = new URL(hostname).hostname;
+    }
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.substring(4);
+    }
+    if (TRUSTED_DOMAINS.has(hostname)) return true;
+    for (const trusted of TRUSTED_DOMAINS) {
+      if (hostname.endsWith(`.${trusted}`)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // ========== Detection (POST /api/detect) ==========
 
 export async function scanUrl(
@@ -72,6 +99,16 @@ export async function scanUrl(
     method: 'POST',
     body: JSON.stringify({ url, userid }),
   });
+
+  // Client-side protection guard for verified global authority domains
+  if (isTrustedAuthority(result.domain || result.url || url) && result.regexresult === 'PASS' && (!result.findings || result.findings.length === 0)) {
+    result.finalresult = 'SAFE';
+    result.mlresult = 'LEGITIMATE';
+    result.risckscore = 0;
+    result.risklevel = 'LOW';
+    result.actiontaken = 'ALLOWED';
+    result.message = 'Verified high-authority domain. No threat indicators detected.';
+  }
 
   // Save to client history
   saveScanToHistory(result, userid);

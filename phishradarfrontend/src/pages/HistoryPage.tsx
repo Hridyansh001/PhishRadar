@@ -300,8 +300,8 @@ export function HistoryPage() {
           position: 'fixed',
           inset: 0,
           zIndex: 100,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -313,13 +313,15 @@ export function HistoryPage() {
               width: '100%',
               maxWidth: '560px',
               padding: '30px',
-              backgroundColor: '#0e131f',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
               position: 'relative',
             }}
           >
             <button
               onClick={() => setSelectedItem(null)}
-              style={{ position: 'absolute', top: '20px', right: '20px', color: 'var(--text-muted)', fontSize: '1.2rem' }}
+              style={{ position: 'absolute', top: '20px', right: '20px', color: '#6b7280', fontSize: '1.2rem', cursor: 'pointer' }}
             >
               ✕
             </button>
@@ -328,47 +330,47 @@ export function HistoryPage() {
               <RiskMeter
                 score={selectedItem.riskscore}
                 verdict={selectedItem.fresult}
-                size={160}
+                size={150}
               />
               <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827' }}>
                   Detection Record #{selectedItem.did}
                 </h3>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
-              <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>DESTINATION URL:</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--radar-blue)', wordBreak: 'break-all' }}>
+              <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>DESTINATION URL:</span>
+                <span style={{ color: '#111827', wordBreak: 'break-all', fontWeight: 600 }}>
                   {selectedItem.url || 'Not recorded'}
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                  <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>COMBINED RISK SCORE:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.1rem', color: selectedItem.riskscore >= 60 ? '#f87171' : '#34d399' }}>
+                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>COMBINED RISK SCORE:</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem', color: selectedItem.riskscore >= 60 ? '#b91c1c' : '#15803d' }}>
                     {selectedItem.riskscore} / 100
                   </span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                  <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>ACTION APPLIED:</span>
-                  <span style={{ fontWeight: 600 }}>{selectedItem.actiontaken}</span>
+                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>ACTION APPLIED:</span>
+                  <span style={{ fontWeight: 600, color: '#111827' }}>{selectedItem.actiontaken}</span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                  <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>ML CLASSIFICATION:</span>
-                  <span style={{ fontWeight: 600 }}>{selectedItem.mlresult}</span>
+                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>ML CLASSIFICATION:</span>
+                  <span style={{ fontWeight: 600, color: selectedItem.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d' }}>{selectedItem.mlresult}</span>
                 </div>
-                <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                  <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>REGEX VERDICT:</span>
-                  <span style={{ fontWeight: 600 }}>{selectedItem.rresult}</span>
+                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.75rem' }}>REGEX VERDICT:</span>
+                  <span style={{ fontWeight: 600, color: selectedItem.rresult === 'SUSPICIOUS' ? '#b45309' : '#15803d' }}>{selectedItem.rresult}</span>
                 </div>
               </div>
 
-              <div style={{ padding: '10px 14px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.75rem' }}>DATABASE TIMESTAMP:</span>
-                <span>{selectedItem.detectedat || 'N/A'}</span>
+              <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb' }}>
+                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem' }}>DATABASE TIMESTAMP:</span>
+                <span style={{ color: '#111827' }}>{selectedItem.detectedat || 'N/A'}</span>
               </div>
             </div>
 

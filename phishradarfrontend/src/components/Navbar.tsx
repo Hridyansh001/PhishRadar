@@ -18,7 +18,6 @@ export function Navbar() {
     { path: '/dashboard', label: 'Security Dashboard', icon: 'chart' },
     { path: '/', label: 'Live Scanner', icon: 'search' },
     { path: '/history', label: 'Detection Logs', icon: 'log' },
-    { path: '/architecture', label: 'Architecture', icon: 'log' },
   ];
 
   const icons: Record<string, ReactNode> = {
@@ -121,11 +120,7 @@ export function Navbar() {
                 );
               })}
             </nav>
-          ) : (
-            <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 500 }}>
-              Real-Time Phishing Threat Protection Platform
-            </div>
-          )}
+          ) : null}
 
           {/* User Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

@@ -50,26 +50,26 @@ body {
   overflow-x: hidden;
 }
 
-/* Stretched fixed background layer that remains completely fixed to viewport during scroll */
+/* Background image for Login, Register, and Dashboard pages */
 #bg-fixed-canvas {
+  display: block;
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
-  background-image: url('/background.png');
-  background-repeat: no-repeat;
-  background-position: left center;
-  background-size: 100% 100%;
-  pointer-events: none;
   z-index: 0;
-  transform: translateZ(0);
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
 
 #root {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  background-color: transparent;
 }
 
 a {
@@ -90,11 +90,12 @@ input, select, textarea {
 
 /* Panel Utility */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(8px);
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(229, 231, 235, 0.85);
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 
@@ -165,9 +166,9 @@ input, select, textarea {
 }
 
 .badge-safe {
-  background: var(--safe-bg);
-  color: #34d399;
-  border: 1px solid rgba(19, 60, 46, 0.3);
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 .badge-review {
@@ -202,4 +203,27 @@ input, select, textarea {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
+}
+
+/* Phishing Animation Responsive & Accessibility Controls */
+.phish-animation-wrapper {
+  transition: opacity 0.3s ease;
+}
+
+@media (max-width: 860px) {
+  .phish-animation-wrapper {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 680px) {
+  .phish-animation-wrapper {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phish-animation-wrapper {
+    display: none !important;
+  }
 }

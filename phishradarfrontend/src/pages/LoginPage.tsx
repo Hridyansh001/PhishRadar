@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login, ApiError } from '../services/api';
+import { FishingRodAnimation } from '../components/FishingRodAnimation';
 
 export function LoginPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,12 +49,28 @@ export function LoginPage() {
       margin: '0 auto',
       width: '100%',
       boxSizing: 'border-box',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      {/* Fully Right-Aligned Form Without Surrounding Box */}
-      <div style={{
-        width: '100%',
-        maxWidth: '380px',
-      }}>
+      {/* Animated Fishing Rod and Hook on the left */}
+      <FishingRodAnimation formRef={formRef} />
+
+      {/* Fully Right-Aligned Form Over Background */}
+      <div
+        ref={formRef}
+        style={{
+          width: '100%',
+          maxWidth: '400px',
+          position: 'relative',
+          zIndex: 10,
+          backgroundColor: 'rgba(255, 255, 255, 0.94)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: '16px',
+          padding: '36px 32px',
+          border: '1px solid rgba(229, 231, 235, 0.85)',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)',
+        }}
+      >
         {/* Header */}
         <div style={{ marginBottom: '28px', textAlign: 'left' }}>
           <div style={{
@@ -87,7 +105,6 @@ export function LoginPage() {
             marginTop: '8px',
             lineHeight: 1.5,
           }}>
-            Access threat analysis records and live URL scanner telemetry
           </p>
         </div>
 
