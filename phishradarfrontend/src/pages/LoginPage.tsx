@@ -40,106 +40,39 @@ export function LoginPage() {
 
   return (
     <div style={{
-      minHeight: 'calc(100vh - 140px)',
+      minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'flex-end',
-      padding: '40px 80px',
+      padding: '40px 100px',
       maxWidth: '1360px',
       margin: '0 auto',
       width: '100%',
       boxSizing: 'border-box',
       position: 'relative',
       overflow: 'hidden',
+      backgroundColor: 'transparent',
     }}>
       {/* Animated Fishing Rod and Hook on the left */}
       <FishingRodAnimation formRef={formRef} />
 
-      {/* Fully Right-Aligned Form Over Background */}
+      {/* Form positioned directly over background without white box behind */}
       <div
         ref={formRef}
         style={{
           width: '100%',
-          maxWidth: '400px',
+          maxWidth: '380px',
           position: 'relative',
           zIndex: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.94)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '16px',
-          padding: '36px 32px',
-          border: '1px solid rgba(229, 231, 235, 0.85)',
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)',
         }}
       >
-        {/* Header */}
-        <div style={{ marginBottom: '28px', textAlign: 'left' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '40px',
-            height: '40px',
-            borderRadius: '8px',
-            backgroundColor: '#000000',
-            marginBottom: '16px',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          </div>
-          <h1 style={{
-            fontSize: '2.1rem',
-            fontWeight: 700,
-            color: '#000000',
-            margin: 0,
-            letterSpacing: '0.01em',
-            lineHeight: 1.2,
-          }}>
-            Sign In to PhishRadar
-          </h1>
-          <p style={{
-            fontSize: '0.95rem',
-            color: '#4b5563',
-            fontStyle: 'italic',
-            marginTop: '8px',
-            lineHeight: 1.5,
-          }}>
-          </p>
-        </div>
-
-        {/* Extension Banner */}
-        {isFromExtension && (
-          <div style={{
-            padding: '12px 14px',
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '6px',
-            color: '#1d4ed8',
-            fontSize: '0.86rem',
-            marginBottom: '18px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            lineHeight: 1.4,
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <div>
-              <span style={{ fontWeight: 700 }}>Extension Link: </span>
-              Signing in here will automatically unlock and activate your PhishRadar browser extension.
-            </div>
-          </div>
-        )}
-
         {/* Error message */}
         {error && (
           <div style={{
             padding: '12px 14px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '6px',
+            backgroundColor: 'rgba(254, 242, 242, 0.85)',
+            border: '1.5px solid #fecaca',
+            borderRadius: '8px',
             color: '#b91c1c',
             fontSize: '0.88rem',
             marginBottom: '20px',
@@ -152,34 +85,37 @@ export function LoginPage() {
           </div>
         )}
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {/* Login Form matching screenshot */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           <div>
             <label style={{
               display: 'block',
-              fontSize: '0.9rem',
+              fontSize: '1.15rem',
               fontWeight: 700,
+              fontFamily: "'Times New Roman', Times, Georgia, serif",
               color: '#111827',
-              marginBottom: '6px',
-              letterSpacing: '0.02em',
+              marginBottom: '8px',
             }}>
-              Email Address
+              Email or Badge
             </label>
             <input
-              type="email"
+              type="text"
               required
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
+              placeholder="Enter ur email or badge"
               style={{
                 width: '100%',
-                padding: '12px 14px',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
                 border: '1.5px solid #111827',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 color: '#111827',
-                fontSize: '0.95rem',
+                fontSize: '1rem',
+                fontFamily: "'Times New Roman', Times, Georgia, serif",
                 outline: 'none',
                 boxSizing: 'border-box',
               }}
@@ -189,11 +125,11 @@ export function LoginPage() {
           <div>
             <label style={{
               display: 'block',
-              fontSize: '0.9rem',
+              fontSize: '1.15rem',
               fontWeight: 700,
+              fontFamily: "'Times New Roman', Times, Georgia, serif",
               color: '#111827',
-              marginBottom: '6px',
-              letterSpacing: '0.02em',
+              marginBottom: '8px',
             }}>
               Password
             </label>
@@ -202,15 +138,18 @@ export function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter ur password"
               style={{
                 width: '100%',
-                padding: '12px 14px',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
                 border: '1.5px solid #111827',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 color: '#111827',
-                fontSize: '0.95rem',
+                fontSize: '1rem',
+                fontFamily: "'Times New Roman', Times, Georgia, serif",
                 outline: 'none',
                 boxSizing: 'border-box',
               }}
@@ -222,35 +161,42 @@ export function LoginPage() {
             disabled={isLoading}
             style={{
               width: '100%',
-              padding: '13px',
-              backgroundColor: '#000000',
-              color: '#ffffff',
+              padding: '12px',
+              backgroundColor: 'rgba(215, 215, 215, 0.65)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              color: '#111827',
               fontWeight: 700,
-              fontSize: '1rem',
-              border: '1px solid #000000',
-              borderRadius: '6px',
+              fontSize: '1.15rem',
+              fontFamily: "'Times New Roman', Times, Georgia, serif",
+              border: '1.5px solid #111827',
+              borderRadius: '8px',
               cursor: isLoading ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.6 : 1,
               marginTop: '4px',
               transition: 'background-color 0.15s',
-              letterSpacing: '0.02em',
+              textAlign: 'center',
             }}
           >
-            {isLoading ? 'Authenticating...' : 'Sign In'}
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        {/* Left-Aligned Footer Link */}
-        <div style={{ marginTop: '24px', textAlign: 'left' }}>
-          <p style={{ fontSize: '0.92rem', color: '#4b5563', margin: 0 }}>
-            Don't have an account?{' '}
-            <Link
-              to="/signup"
-              style={{ color: '#000000', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: '3px' }}
-            >
-              Sign Up
-            </Link>
-          </p>
+        {/* Center-aligned Register here link */}
+        <div style={{ marginTop: '22px', textAlign: 'center' }}>
+          <Link
+            to="/signup"
+            style={{
+              color: '#111827',
+              fontWeight: 700,
+              fontSize: '1.05rem',
+              fontFamily: "'Times New Roman', Times, Georgia, serif",
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+            }}
+          >
+            Register here
+          </Link>
         </div>
       </div>
     </div>

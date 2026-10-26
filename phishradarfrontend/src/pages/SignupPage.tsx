@@ -67,7 +67,7 @@ export function SignupPage() {
 
   return (
     <div style={{
-      minHeight: 'calc(100vh - 120px)',
+      minHeight: '100vh',
       width: '100%',
       backgroundColor: 'transparent',
       display: 'flex',
@@ -79,12 +79,6 @@ export function SignupPage() {
       <div style={{
         width: '100%',
         maxWidth: '1320px',
-        backgroundColor: 'rgba(255, 255, 255, 0.94)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: '16px',
-        padding: '40px 48px',
-        border: '1px solid rgba(229, 231, 235, 0.85)',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
@@ -112,7 +106,7 @@ export function SignupPage() {
           />
         </div>
 
-        {/* Right Side: Registration Form */}
+        {/* Right Side: Registration Form without white box behind */}
         <div style={{
           flex: '1.2 1 540px',
           maxWidth: '680px',
@@ -173,8 +167,9 @@ export function SignupPage() {
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: '0.92rem',
+                    fontSize: '0.95rem',
                     fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, Georgia, serif",
                     color: '#111827',
                     marginBottom: '6px',
                   }}>
@@ -189,12 +184,15 @@ export function SignupPage() {
                     placeholder="Enter your full name"
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '12px 14px',
                       fontSize: '0.95rem',
-                      border: '1px solid #6b7280',
-                      borderRadius: '6px',
+                      fontFamily: "'Times New Roman', Times, Georgia, serif",
+                      border: '1.5px solid #111827',
+                      borderRadius: '8px',
                       outline: 'none',
-                      backgroundColor: '#ffffff',
+                      backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
                       color: '#111827',
                       boxSizing: 'border-box',
                     }}
@@ -205,8 +203,9 @@ export function SignupPage() {
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: '0.92rem',
+                    fontSize: '0.95rem',
                     fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, Georgia, serif",
                     color: '#111827',
                     marginBottom: '6px',
                   }}>
@@ -220,12 +219,15 @@ export function SignupPage() {
                     placeholder="Enter your email"
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '12px 14px',
                       fontSize: '0.95rem',
-                      border: '1px solid #6b7280',
-                      borderRadius: '6px',
+                      fontFamily: "'Times New Roman', Times, Georgia, serif",
+                      border: '1.5px solid #111827',
+                      borderRadius: '8px',
                       outline: 'none',
-                      backgroundColor: '#ffffff',
+                      backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
                       color: '#111827',
                       boxSizing: 'border-box',
                     }}
@@ -243,22 +245,25 @@ export function SignupPage() {
                     type="submit"
                     disabled={isLoading}
                     style={{
-                      backgroundColor: '#71717a',
-                      color: '#ffffff',
-                      border: '1px solid #52525b',
-                      padding: '9px 28px',
-                      fontSize: '0.92rem',
-                      fontWeight: 600,
-                      borderRadius: '6px',
+                      backgroundColor: 'rgba(215, 215, 215, 0.7)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      color: '#111827',
+                      border: '1.5px solid #111827',
+                      padding: '11px 32px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      fontFamily: "'Times New Roman', Times, Georgia, serif",
+                      borderRadius: '8px',
                       cursor: isLoading ? 'not-allowed' : 'pointer',
                       opacity: isLoading ? 0.7 : 1,
                       transition: 'background-color 0.15s',
                     }}
                     onMouseEnter={(e) => {
-                      if (!isLoading) e.currentTarget.style.backgroundColor = '#52525b';
+                      if (!isLoading) e.currentTarget.style.backgroundColor = 'rgba(200, 200, 200, 0.85)';
                     }}
                     onMouseLeave={(e) => {
-                      if (!isLoading) e.currentTarget.style.backgroundColor = '#71717a';
+                      if (!isLoading) e.currentTarget.style.backgroundColor = 'rgba(215, 215, 215, 0.7)';
                     }}
                   >
                     {isLoading ? 'Registering...' : 'Register'}
@@ -268,18 +273,21 @@ export function SignupPage() {
                     type="button"
                     onClick={() => navigate('/login')}
                     style={{
-                      backgroundColor: '#ffffff',
+                      backgroundColor: 'rgba(240, 240, 240, 0.5)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
                       color: '#111827',
-                      border: '1px solid #6b7280',
-                      padding: '9px 28px',
-                      fontSize: '0.92rem',
-                      fontWeight: 600,
-                      borderRadius: '6px',
+                      border: '1.5px solid #111827',
+                      padding: '11px 32px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      fontFamily: "'Times New Roman', Times, Georgia, serif",
+                      borderRadius: '8px',
                       cursor: 'pointer',
                       transition: 'background-color 0.15s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(230, 230, 230, 0.75)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(240, 240, 240, 0.5)')}
                   >
                     Back
                   </button>
@@ -292,8 +300,9 @@ export function SignupPage() {
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: '0.92rem',
+                    fontSize: '0.95rem',
                     fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, Georgia, serif",
                     color: '#111827',
                     marginBottom: '6px',
                   }}>
@@ -308,12 +317,15 @@ export function SignupPage() {
                       placeholder="Enter your password"
                       style={{
                         width: '100%',
-                        padding: '10px 42px 10px 14px',
+                        padding: '12px 42px 12px 14px',
                         fontSize: '0.95rem',
-                        border: '1px solid #6b7280',
-                        borderRadius: '6px',
+                        fontFamily: "'Times New Roman', Times, Georgia, serif",
+                        border: '1.5px solid #111827',
+                        borderRadius: '8px',
                         outline: 'none',
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                         color: '#111827',
                         boxSizing: 'border-box',
                       }}
@@ -333,7 +345,7 @@ export function SignupPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#6b7280',
+                        color: '#111827',
                       }}
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
@@ -356,8 +368,9 @@ export function SignupPage() {
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: '0.92rem',
+                    fontSize: '0.95rem',
                     fontWeight: 700,
+                    fontFamily: "'Times New Roman', Times, Georgia, serif",
                     color: '#111827',
                     marginBottom: '6px',
                   }}>
@@ -372,12 +385,15 @@ export function SignupPage() {
                       placeholder="Re-enter your password"
                       style={{
                         width: '100%',
-                        padding: '10px 42px 10px 14px',
+                        padding: '12px 42px 12px 14px',
                         fontSize: '0.95rem',
-                        border: '1px solid #6b7280',
-                        borderRadius: '6px',
+                        fontFamily: "'Times New Roman', Times, Georgia, serif",
+                        border: '1.5px solid #111827',
+                        borderRadius: '8px',
                         outline: 'none',
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'rgba(225, 225, 225, 0.45)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                         color: '#111827',
                         boxSizing: 'border-box',
                       }}
@@ -397,7 +413,7 @@ export function SignupPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#6b7280',
+                        color: '#111827',
                       }}
                       title={showConfirmPassword ? 'Hide password' : 'Show password'}
                     >
