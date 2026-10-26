@@ -33,14 +33,11 @@ const SKIP_PROTOCOLS = new Set([
 
 /**
  * Check if real-time protection is toggled on.
+ * Active by default out-of-the-box.
  */
 async function isProtectionEnabled() {
-  const data = await chrome.storage.local.get(['protectionEnabled', 'phishradar_user']);
-  // Extension protection is only active if protection is enabled AND user is logged in
-  if (!data.phishradar_user) {
-    return false;
-  }
-  return data.protectionEnabled !== false; // Default: ON when logged in
+  const data = await chrome.storage.local.get(['protectionEnabled']);
+  return data.protectionEnabled !== false; // Default: ON (active out of the box)
 }
 
 /**
@@ -141,15 +138,19 @@ function isDangerous(result, url) {
   if (!result || result.error) return false; // Fail open on errors
   if (shouldSkipUrl(url)) return false; // Never block trusted domains
 
-  // Check if flagged as SUSPICIOUS
+  const score = Number(result.risckscore ?? result.riskscore ?? result.riskScore ?? 0);
   const isSuspicious = result.finalresult === 'SUSPICIOUS' || result.actiontaken === 'WARNING';
-  if (!isSuspicious) return false;
+  const isReview = result.finalresult === 'REVIEW' || result.actiontaken === 'REVIEW';
 
-  // Confirm danger with heuristic findings or elevated risk score
-  const hasFindings = Array.isArray(result.findings) && result.findings.length > 0;
-  const highRiskScore = (result.risckscore || 0) >= 50;
+  // Strict Threshold Enforcement:
+  // - Below 20: Safe and clean -> goes through without blocking (return false)
+  // - 20 to 60: Suspicious & requires review -> block & ask if user wants to continue (return true)
+  // - Above 60: Threats & phishing -> block (return true)
+  if (score >= 20 || isSuspicious || isReview) {
+    return true;
+  }
 
-  return hasFindings || highRiskScore;
+  return false;
 }
 
 /**
@@ -193,34 +194,61 @@ function cleanupExpired() {
 setInterval(cleanupExpired, 60 * 1000);
 
 // ==========================================
-// Navigation Interception via webNavigation
+// Navigation Interception via webNavigation & tabs
 // ==========================================
 
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  // Only intercept main frame top-level navigations
-  if (details.frameId !== 0) return;
+const inflightScans = new Set();
 
-  const url = details.url;
+function isBypassed(url) {
+  if (!url) return false;
+  if (bypassedUrls.has(url)) return true;
+  try {
+    const u = new URL(url);
+    if (bypassedUrls.has(u.origin) || bypassedUrls.has(u.origin + '/') || bypassedUrls.has(u.href)) {
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+async function handleNavigation(tabId, url) {
+  if (!url || !tabId) return;
   if (shouldSkipUrl(url)) return;
+  if (url.startsWith(chrome.runtime.getURL('warning.html'))) return;
+  if (isBypassed(url)) return;
 
   const enabled = await isProtectionEnabled();
   if (!enabled) return;
 
-  // Check if session bypass was granted
-  if (bypassedUrls.has(url)) return;
-
-  // Skip warning page itself
-  if (url.startsWith(chrome.runtime.getURL('warning.html'))) return;
+  const dedupeKey = `${tabId}:${url}`;
+  if (inflightScans.has(dedupeKey)) return;
+  inflightScans.add(dedupeKey);
 
   try {
     const result = await scanUrl(url);
 
     if (isDangerous(result, url)) {
-      const warningUrl = getWarningPageUrl(url, result);
-      chrome.tabs.update(details.tabId, { url: warningUrl });
+      if (!isBypassed(url)) {
+        const warningUrl = getWarningPageUrl(url, result);
+        chrome.tabs.update(tabId, { url: warningUrl });
+      }
     }
   } catch (err) {
     console.error('[PhishRadar] Navigation scan error:', err);
+  } finally {
+    setTimeout(() => inflightScans.delete(dedupeKey), 2500);
+  }
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  if (details.frameId === 0 && details.url) {
+    handleNavigation(details.tabId, details.url);
+  }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url) {
+    handleNavigation(tabId, changeInfo.url);
   }
 });
 
@@ -308,6 +336,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'BYPASS_URL') {
     bypassedUrls.set(message.url, Date.now());
+    try {
+      const u = new URL(message.url);
+      bypassedUrls.set(u.origin, Date.now());
+      bypassedUrls.set(u.origin + '/', Date.now());
+      bypassedUrls.set(u.href, Date.now());
+    } catch {}
     sendResponse({ ok: true });
     return true;
   }

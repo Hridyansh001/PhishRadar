@@ -19,13 +19,13 @@ export function RiskMeter({ score, verdict = 'SAFE', riskLevel, size = 160 }: Ri
 
   const vUpper = (verdict || '').toUpperCase();
 
-  if (vUpper === 'SUSPICIOUS' || vUpper === 'MALICIOUS' || safeScore >= 60) {
+  if (vUpper === 'SUSPICIOUS' || vUpper === 'MALICIOUS' || safeScore > 60) {
     color = '#b91c1c'; // Deep crimson
-    verdictLabel = 'MALICIOUS';
+    verdictLabel = 'THREAT';
     computedLevel = riskLevel || 'HIGH';
-  } else if (vUpper === 'REVIEW' || safeScore >= 30) {
+  } else if (vUpper === 'REVIEW' || safeScore >= 20) {
     color = '#b45309'; // Amber
-    verdictLabel = 'SUSPICIOUS';
+    verdictLabel = 'REVIEW';
     computedLevel = riskLevel || 'MEDIUM';
   }
 

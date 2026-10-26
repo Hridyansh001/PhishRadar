@@ -62,12 +62,15 @@
       </div>
     </div>
 
-    <!-- Hidden elements for JS compatibility -->
-    <div id="destination-domain" style="display:none;"></div>
-    <div id="findings-section" style="display:none;">
-      <div id="findings-list"></div>
+    <!-- Review / Prompt Message -->
+    <div class="warning-message-box" id="warning-message"></div>
+
+    <!-- Findings Chips Section -->
+    <div id="findings-section" class="findings-section" style="display:none;">
+      <div class="findings-title">Detected Indicators</div>
+      <div id="findings-list" class="findings-list"></div>
     </div>
-    <div id="warning-message" style="display:none;"></div>
+    <div id="destination-domain" style="display:none;"></div>
 
     <!-- Action Buttons -->
     <div class="warning-actions">

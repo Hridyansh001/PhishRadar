@@ -240,8 +240,8 @@ export function HistoryPage() {
                     </td>
                     <td style={{ padding: '14px 16px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
                       <span style={{
-                        color: item.riskscore >= 60 ? '#b91c1c' :
-                          item.riskscore >= 30 ? '#b45309' : '#15803d'
+                        color: item.riskscore > 60 ? 'var(--danger-crimson)' :
+                          item.riskscore >= 20 ? 'var(--warning-amber)' : 'var(--safe-green)'
                       }}>
                         {item.riskscore} / 100
                       </span>

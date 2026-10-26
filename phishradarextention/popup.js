@@ -80,9 +80,9 @@ async function init() {
       return;
     }
 
-    // 3. User is not logged in: display the locked Auth View
+    // 3. User is not logged in: display the Dashboard in Guest Mode with Active Protection!
     currentUser = null;
-    showAuthView();
+    showDashboardView(null);
   }
 
   async function findUserInOpenTabs() {
@@ -178,15 +178,24 @@ async function init() {
     authPanel.classList.add('hidden');
     dashboardPanel.classList.remove('hidden');
 
-    // Populate user profile info
-    if (userAvatar) {
-      userAvatar.textContent = (user.uname ? user.uname.charAt(0) : 'U').toUpperCase();
-    }
-    if (userUname) {
-      userUname.textContent = user.uname || 'User';
-    }
-    if (userBadge) {
-      userBadge.textContent = user.userid ? `User #${user.userid}` : 'Active Session';
+    if (user) {
+      if (userAvatar) userAvatar.textContent = (user.uname ? user.uname.charAt(0) : 'U').toUpperCase();
+      if (userUname) userUname.textContent = user.uname || 'User';
+      if (userBadge) userBadge.textContent = user.userid ? `User #${user.userid}` : 'Active Session';
+      if (btnSignout) btnSignout.style.display = 'inline-block';
+      if (btnOpenDashQuick) {
+        btnOpenDashQuick.style.display = 'inline-flex';
+        btnOpenDashQuick.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>Dashboard</span>';
+      }
+    } else {
+      if (userAvatar) userAvatar.textContent = '🛡️';
+      if (userUname) userUname.textContent = 'Active Protection';
+      if (userBadge) userBadge.textContent = 'Guest Mode';
+      if (btnSignout) btnSignout.style.display = 'none';
+      if (btnOpenDashQuick) {
+        btnOpenDashQuick.style.display = 'inline-flex';
+        btnOpenDashQuick.innerHTML = '<span>Sign In / Sync</span>';
+      }
     }
 
     // Initialize telemetry and scanner controls
@@ -398,6 +407,82 @@ async function init() {
     });
   }
 
+  // Quick URL Scanner controls
+  const manualUrlInput = document.getElementById('manual-url-input');
+  const btnManualScan = document.getElementById('btn-manual-scan');
+  const btnTestInterstitial = document.getElementById('btn-test-interstitial');
+  let lastManualScanResult = null;
+  let lastManualUrl = null;
+
+  async function performManualScan() {
+    if (!manualUrlInput) return;
+    let url = manualUrlInput.value.trim();
+    if (!url) return;
+
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
+    btnManualScan.disabled = true;
+    btnManualScan.textContent = '...';
+    if (btnTestInterstitial) btnTestInterstitial.classList.add('hidden');
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'SCAN_URL',
+        url: url
+      });
+
+      lastManualScanResult = result;
+      lastManualUrl = url;
+
+      showScanResult(result);
+
+      const score = Number(result.risckscore ?? result.riskscore ?? 0);
+      const isDangerous = score >= 20 || result.finalresult === 'SUSPICIOUS' || result.finalresult === 'REVIEW';
+
+      if (isDangerous && btnTestInterstitial) {
+        btnTestInterstitial.classList.remove('hidden');
+        btnTestInterstitial.textContent = score > 60
+          ? `View Warning Block (${score}/100 Threat)`
+          : `View Review Warning (${score}/100 Review)`;
+      }
+    } catch (err) {
+      if (scanMessage) scanMessage.textContent = 'Error scanning: ' + err.message;
+    } finally {
+      btnManualScan.disabled = false;
+      btnManualScan.textContent = 'Scan';
+    }
+  }
+
+  if (btnManualScan) {
+    btnManualScan.addEventListener('click', performManualScan);
+  }
+  if (manualUrlInput) {
+    manualUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') performManualScan();
+    });
+  }
+
+  if (btnTestInterstitial) {
+    btnTestInterstitial.addEventListener('click', () => {
+      if (!lastManualUrl || !lastManualScanResult) return;
+      const params = new URLSearchParams();
+      params.set('url', lastManualUrl);
+      params.set('finalresult', lastManualScanResult.finalresult || 'SUSPICIOUS');
+      params.set('risckscore', String(lastManualScanResult.risckscore ?? ''));
+      params.set('risklevel', lastManualScanResult.risklevel || 'HIGH');
+      params.set('message', lastManualScanResult.message || '');
+      params.set('domain', lastManualScanResult.domain || '');
+      params.set('findings', JSON.stringify(lastManualScanResult.findings || []));
+      params.set('mlresult', lastManualScanResult.mlresult || '');
+      params.set('regexresult', lastManualScanResult.regexresult || '');
+      params.set('actiontaken', lastManualScanResult.actiontaken || 'WARNING');
+      const warningUrl = chrome.runtime.getURL('warning.html') + '?' + params.toString();
+      chrome.tabs.create({ url: warningUrl });
+    });
+  }
+
   function updateProtectionUI(enabled) {
     if (!toggleLabel) return;
     toggleLabel.textContent = enabled ? 'ON' : 'OFF';
@@ -493,12 +578,12 @@ async function init() {
     }
 
     // Score
-    const score = result.risckscore;
+    const score = Number(result.risckscore ?? result.riskscore ?? 0);
     if (scanScore) {
       if (score !== undefined && score !== null) {
         scanScore.textContent = score + '/100';
-        if (score >= 60) scanScore.className = 'scan-score high';
-        else if (score >= 30) scanScore.className = 'scan-score medium';
+        if (score > 60) scanScore.className = 'scan-score high';
+        else if (score >= 20) scanScore.className = 'scan-score medium';
         else scanScore.className = 'scan-score low';
       } else {
         scanScore.textContent = '';
@@ -513,11 +598,13 @@ async function init() {
     if (scanDetails) {
       const findings = result.findings || [];
       const dangerFindings = new Set([
-        'IP_ADDRESS_IN_URL', 'HIGHLY_SUSPICIOUS_DOMAIN', 'URL_SHORTENER_DETECTED'
+        'BRAND_IMPERSONATION', 'TYPOSQUATTING_DETECTED', 'HIGHLY_SUSPICIOUS_DOMAIN',
+        'IP_ADDRESS_IN_URL', 'AT_SYMBOL_IN_URL', 'URL_SHORTENER_DETECTED'
       ]);
       const warningFindings = new Set([
-        'SUSPICIOUS_KEYWORD', 'SUSPICIOUS_TLD', 'NOT_HTTPS',
-        'UNUSUALLY_LONG_URL', 'PERCENT_ENCODING_PRESENT'
+        'SUSPICIOUS_KEYWORD_IN_DOMAIN', 'SUSPICIOUS_KEYWORD_IN_PATH', 'SUSPICIOUS_KEYWORD',
+        'SUSPICIOUS_TLD', 'EXCESSIVE_HYPHENS_IN_DOMAIN', 'EXCESSIVE_SUBDOMAINS',
+        'DOUBLE_SLASH_IN_PATH', 'NOT_HTTPS', 'UNUSUALLY_LONG_URL', 'PERCENT_ENCODING_PRESENT'
       ]);
 
       scanDetails.innerHTML = '';

@@ -489,7 +489,7 @@ export function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#15803d' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Clean / Safe (PASS)</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>Safe & Clean (&lt; 20 Score)</span>
               </div>
               <span style={{ fontWeight: 600, color: '#374151' }}>
                 {safe} ({safePct}%)
@@ -499,7 +499,7 @@ export function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#b45309' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Ambiguous / Requires Review</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>Requires Review (20 – 60 Score)</span>
               </div>
               <span style={{ fontWeight: 600, color: '#374151' }}>
                 {review} ({reviewPct}%)
@@ -509,7 +509,7 @@ export function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#b91c1c' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Confirmed Suspicious / Phishing</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>Threats & Blocked (&gt; 60 Score)</span>
               </div>
               <span style={{ fontWeight: 600, color: '#374151' }}>
                 {suspicious} ({suspiciousPct}%)
@@ -783,8 +783,8 @@ export function DashboardPage() {
                         <span style={{
                           fontWeight: 700,
                           fontSize: '0.95rem',
-                          color: item.riskscore >= 60 ? '#b91c1c' :
-                            item.riskscore >= 30 ? '#b45309' : '#15803d',
+                          color: item.riskscore > 60 ? '#b91c1c' :
+                            item.riskscore >= 20 ? '#b45309' : '#15803d',
                         }}>
                           {item.riskscore}
                         </span>
@@ -798,8 +798,8 @@ export function DashboardPage() {
                           <div style={{
                             width: `${Math.min(100, item.riskscore)}%`,
                             height: '100%',
-                            backgroundColor: item.riskscore >= 60 ? '#b91c1c' :
-                              item.riskscore >= 30 ? '#b45309' : '#15803d',
+                            backgroundColor: item.riskscore > 60 ? '#b91c1c' :
+                              item.riskscore >= 20 ? '#b45309' : '#15803d',
                           }} />
                         </div>
                       </div>

@@ -1,4 +1,3 @@
-
 package com.phishradar.phishradarbackend.service;
 
 import org.springframework.stereotype.Service;
@@ -61,20 +60,25 @@ public class mldetectionservice {
         double predictedIndex = model.classifyInstance(instance);
         double[] probabilities = model.distributionForInstance(instance);
 
-        String classification = structure.classAttribute()
+        String rawClassification = structure.classAttribute()
                 .value((int) predictedIndex);
+        String classification = rawClassification != null ? rawClassification.toUpperCase() : "LEGITIMATE";
 
         double phishingProbability = 0.0;
 
-        for (int i = 0;
-             i < structure.classAttribute().numValues(); i++) {
-
+        for (int i = 0; i < structure.classAttribute().numValues(); i++) {
             if ("phishing".equalsIgnoreCase(
                     structure.classAttribute().value(i))) {
-                phishingProbability = probabilities[i] * 100.0;
+                if (probabilities != null && probabilities.length > i) {
+                    phishingProbability = probabilities[i] * 100.0;
+                }
                 break;
             }
         }
+
+        // Clamp to valid percentage range [0.0, 100.0] and format to 2 decimal places
+        phishingProbability = Math.max(0.0, Math.min(100.0, phishingProbability));
+        phishingProbability = Math.round(phishingProbability * 100.0) / 100.0;
 
         return new Prediction(
                 classification,

@@ -154,6 +154,60 @@ body {
 .table-value.warning { color: #d29922; }
 .table-value.safe { color: #3fb950; }
 
+/* Warning message box */
+.warning-message-box {
+  width: 100%;
+  max-width: 480px;
+  background: #111111;
+  border: 1px solid #222222;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #cccccc;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Findings Section */
+.findings-section {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 24px;
+}
+
+.findings-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #888888;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.findings-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.finding-chip {
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #f85149;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.warning-chip {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: rgba(217, 119, 6, 0.4);
+  color: #d97706;
+}
+
 /* Actions */
 .warning-actions {
   display: flex;

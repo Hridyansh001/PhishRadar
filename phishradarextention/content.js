@@ -18,7 +18,26 @@
 
   let lastSyncedUserJson = null;
 
+  function isPhishRadarPage() {
+    const origin = window.location.origin || '';
+    const host = window.location.hostname || '';
+    return (
+      origin.includes('localhost:5173') ||
+      origin.includes('127.0.0.1:5173') ||
+      origin.includes('localhost:3000') ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      document.title.toLowerCase().includes('phishradar') ||
+      document.documentElement.hasAttribute('data-phishradar-extension-active')
+    );
+  }
+
   function syncAuth(user) {
+    // NEVER wipe user from extension storage if we are on an arbitrary website!
+    if (!user && !isPhishRadarPage()) {
+      return;
+    }
+
     const currentJson = JSON.stringify(user || null);
     if (currentJson === lastSyncedUserJson) return;
     lastSyncedUserJson = currentJson;
@@ -31,7 +50,7 @@
             phishradar_user: user,
             userId: user.userid
           });
-        } else {
+        } else if (isPhishRadarPage()) {
           chrome.storage.local.remove(['phishradar_user', 'userId']);
         }
       }
@@ -53,6 +72,11 @@
   }
 
   function checkAndSyncAuth() {
+    // Only inspect auth state on PhishRadar web pages
+    if (!isPhishRadarPage()) {
+      return null;
+    }
+
     try {
       const stored = window.localStorage.getItem('phishradar_user');
       if (stored) {
@@ -68,7 +92,7 @@
         return user;
       }
 
-      // If neither is present, mark as unauthenticated
+      // If on PhishRadar web page and neither is present, user is logged out on the dashboard
       syncAuth(null);
     } catch {
       // Ignore parse errors

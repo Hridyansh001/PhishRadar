@@ -810,3 +810,69 @@ body {
   color: var(--white);
   border-color: #555555;
 }
+
+/* Quick URL Scanner Card */
+.test-scanner-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.test-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.test-url-input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #282828;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  color: var(--white);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.test-url-input:focus {
+  border-color: #555;
+}
+
+.btn-manual-scan {
+  background: var(--white);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition);
+  white-space: nowrap;
+}
+
+.btn-manual-scan:hover {
+  opacity: 0.85;
+}
+
+.btn-test-interstitial {
+  background: #1a1500;
+  color: #ffbe38;
+  border: 1px solid rgba(255, 190, 56, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition);
+}
+
+.btn-test-interstitial:hover {
+  background: #2a2000;
+  border-color: #ffbe38;
+}

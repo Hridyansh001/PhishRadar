@@ -48,6 +48,30 @@
   }
 
   // Populate detection details
+  const score = parseInt(risckscore, 10) || 0;
+  const isHighThreat = score > 60 || finalresult === 'SUSPICIOUS' || actiontaken === 'WARNING';
+
+  // Dynamic Page Title
+  const titleEl = document.querySelector('.warning-title');
+  if (titleEl) {
+    if (isHighThreat) {
+      titleEl.innerHTML = '<span class="text-danger">Threats & Phishing</span> Blocked';
+    } else {
+      titleEl.innerHTML = '<span class="text-warning" style="color: #d97706;">Suspicious Site</span> — Review Required';
+    }
+  }
+
+  // Warning Icon Color
+  const iconPath = document.querySelector('.danger-icon svg path');
+  if (iconPath && !isHighThreat) {
+    iconPath.setAttribute('stroke', '#d97706');
+    const lines = document.querySelectorAll('.danger-icon svg line, .danger-icon svg circle');
+    lines.forEach(l => {
+      l.setAttribute('stroke', '#d97706');
+      l.setAttribute('fill', '#d97706');
+    });
+  }
+
   if (finalresult) {
     verdictEl.textContent = finalresult;
     if (finalresult === 'SUSPICIOUS') verdictEl.classList.add('danger');
@@ -57,16 +81,15 @@
 
   if (risckscore) {
     scoreEl.textContent = risckscore + ' / 100';
-    const score = parseInt(risckscore, 10);
-    if (score >= 60) scoreEl.classList.add('danger');
-    else if (score >= 30) scoreEl.classList.add('warning');
+    if (score > 60) scoreEl.classList.add('danger');
+    else if (score >= 20) scoreEl.classList.add('warning');
     else scoreEl.classList.add('safe');
   }
 
   if (risklevel) {
     risklevelEl.textContent = risklevel;
-    if (risklevel === 'HIGH') risklevelEl.classList.add('danger');
-    else if (risklevel === 'MEDIUM') risklevelEl.classList.add('warning');
+    if (risklevel === 'HIGH' || score > 60) risklevelEl.classList.add('danger');
+    else if (risklevel === 'MEDIUM' || score >= 20) risklevelEl.classList.add('warning');
     else risklevelEl.classList.add('safe');
   }
 
@@ -82,9 +105,10 @@
     else regexEl.classList.add('safe');
   }
 
-  // Populate findings (hidden but still functional)
+  // Populate findings
   const dangerFindings = new Set([
-    'IP_ADDRESS_IN_URL', 'HIGHLY_SUSPICIOUS_DOMAIN', 'URL_SHORTENER_DETECTED'
+    'BRAND_IMPERSONATION', 'TYPOSQUATTING_DETECTED', 'HIGHLY_SUSPICIOUS_DOMAIN',
+    'IP_ADDRESS_IN_URL', 'AT_SYMBOL_IN_URL', 'URL_SHORTENER_DETECTED'
   ]);
 
   if (findings.length > 0) {
@@ -100,8 +124,10 @@
   // Populate message
   if (message) {
     messageEl.textContent = message;
+  } else if (!isHighThreat) {
+    messageEl.textContent = 'This website has a risk score of ' + score + '/100 (Suspicious, 20–60 range) and requires your review before proceeding. Do you want to continue?';
   } else {
-    messageEl.textContent = 'This website has been flagged by PhishRadar\'s detection engine. Proceed with extreme caution.';
+    messageEl.textContent = 'This website has a risk score of ' + score + '/100 (>60 high threat) and was blocked to protect your credentials. Proceed with extreme caution.';
   }
 
   // Button handlers
