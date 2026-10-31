@@ -112,32 +112,15 @@ export function DashboardPage() {
         gap: '20px',
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h1 style={{
-              fontSize: '1.95rem',
-              fontWeight: 800,
-              color: '#111827',
-              letterSpacing: '-0.02em',
-              margin: 0,
-            }}>
-              Security Dashboard
-            </h1>
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              padding: '4px 10px',
-              borderRadius: '9999px',
-              backgroundColor: '#f0fdf4',
-              color: '#15803d',
-              border: '1px solid #bbf7d0',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#15803d' }} />
-              Shield Active
-            </span>
-          </div>
+          <h1 style={{
+            fontSize: '1.95rem',
+            fontWeight: 800,
+            color: '#111827',
+            letterSpacing: '-0.02em',
+            margin: 0,
+          }}>
+            Security Dashboard
+          </h1>
 
           <p style={{ color: '#4b5563', fontSize: '0.95rem', marginTop: '6px', maxWidth: '650px' }}>
             {user?.uname ? `Welcome, ${user.uname}. ` : ''}

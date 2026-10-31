@@ -69,44 +69,6 @@ function AppLayout() {
         display: 'flex',
         flexDirection: 'column',
       }}>
-        {/* Clean, Non-Clustered Top Bar */}
-        <header style={{
-          height: '62px',
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: 'rgba(255, 255, 255, 0.92)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 36px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 30,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: '#6b7280' }}>
-            <span style={{ fontWeight: 600, color: '#111827' }}>PhishRadar</span>
-            <span>/</span>
-            <span>Security Management Console</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '9999px',
-              backgroundColor: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              color: '#15803d',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a' }} />
-              Live Protection Active
-            </div>
-          </div>
-        </header>
 
         {/* Content View with Generous Margins & No Clustering */}
         <main style={{
