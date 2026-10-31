@@ -338,6 +338,23 @@ export function DashboardPage() {
                 <div style={{ fontSize: '0.82rem', color: '#4b5563', marginTop: '2px' }}>
                   Risk Score: <strong>{scanResult.risckscore}/100</strong> ({scanResult.risklevel} Risk) &bull; ML: {scanResult.mlresult} &bull; Action: {scanResult.actiontaken}
                 </div>
+                {scanResult.officialAlternative && (
+                  <div style={{ marginTop: '4px', fontSize: '0.82rem' }}>
+                    <a
+                      href={scanResult.officialAlternative}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'underline' }}
+                    >
+                      Official Website: {scanResult.officialAlternative} ↗
+                    </a>
+                  </div>
+                )}
+                {scanResult.suggestions && scanResult.suggestions.length > 0 && (
+                  <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#374151' }}>
+                    {scanResult.suggestions[0]}
+                  </div>
+                )}
               </div>
             </div>
 

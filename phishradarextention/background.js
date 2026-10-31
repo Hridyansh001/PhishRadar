@@ -179,6 +179,10 @@ function getWarningPageUrl(originalUrl, scanResult) {
     params.set('domain', scanResult.domain || '');
     params.set('findings', JSON.stringify(scanResult.findings || []));
     params.set('explanations', JSON.stringify(scanResult.explanations || scanResult.intelligenceReasons || []));
+    params.set('suggestions', JSON.stringify(scanResult.suggestions || []));
+    if (scanResult.officialAlternative) {
+      params.set('officialAlternative', scanResult.officialAlternative);
+    }
     params.set('mlresult', scanResult.mlresult || '');
     params.set('regexresult', scanResult.regexresult || '');
     params.set('actiontaken', scanResult.actiontaken || 'WARNING');

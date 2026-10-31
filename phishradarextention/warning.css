@@ -103,6 +103,49 @@ h1 {
   text-align: left;
 }
 
+/* Official Alternative Card */
+.official-alt-card {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid #1e3a8a;
+  border-radius: 6px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.official-alt-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 4px;
+}
+
+.official-alt-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.btn-official-site {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.btn-official-site:hover {
+  opacity: 0.9;
+}
+
 /* Reasons Container */
 .reasons-container {
   width: 100%;

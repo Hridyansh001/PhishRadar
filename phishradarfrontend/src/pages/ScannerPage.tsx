@@ -316,6 +316,71 @@ export function ScannerPage() {
                   <strong style={{ color: '#111827' }}>Recommendation:</strong> {result.message}
                 </div>
               )}
+
+              {/* Official Alternative Banner */}
+              {result.officialAlternative && (
+                <div style={{
+                  padding: '14px 18px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Verified Official Alternative
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#1e3a8a', marginTop: '2px' }}>
+                      Looking for the genuine service? Access the official domain instead:
+                    </div>
+                  </div>
+                  <a
+                    href={result.officialAlternative}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      borderRadius: '6px',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Go to Official Website ↗
+                  </a>
+                </div>
+              )}
+
+              {/* Tailored User Guidance & Suggestions */}
+              {result.suggestions && result.suggestions.length > 0 && (
+                <div style={{
+                  padding: '14px 18px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                    Security Guidance & User Suggestions
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {result.suggestions.map((sugg, idx) => (
+                      <div key={idx} style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: '1.45' }}>
+                        {sugg}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

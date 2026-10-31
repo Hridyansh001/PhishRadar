@@ -629,6 +629,41 @@ async function init() {
         infoTag.textContent = extraInfo.join(' | ');
         scanDetails.appendChild(infoTag);
       }
+
+      // Intelligent Security Suggestions & Guidance
+      const existingBox = scanPanel.querySelector('.scan-suggestions-box');
+      if (existingBox) existingBox.remove();
+
+      const suggestions = result.suggestions || [];
+      const officialAlt = result.officialAlternative;
+
+      if (suggestions.length > 0 || officialAlt) {
+        const box = document.createElement('div');
+        box.className = 'scan-suggestions-box';
+
+        const title = document.createElement('div');
+        title.className = 'suggestion-title';
+        title.textContent = 'Smart Security Guidance:';
+        box.appendChild(title);
+
+        suggestions.slice(0, 3).forEach(sugg => {
+          const item = document.createElement('div');
+          item.className = 'suggestion-item';
+          item.textContent = sugg;
+          box.appendChild(item);
+        });
+
+        if (officialAlt) {
+          const altLink = document.createElement('a');
+          altLink.className = 'btn-official-alt';
+          altLink.href = officialAlt;
+          altLink.target = '_blank';
+          altLink.textContent = `Open Official Site (${officialAlt.replace(/^https?:\/\//, '')}) ↗`;
+          box.appendChild(altLink);
+        }
+
+        scanPanel.appendChild(box);
+      }
     }
   }
 

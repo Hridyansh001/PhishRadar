@@ -323,6 +323,58 @@ public class detectionservice {
 
         detectionrepository.save(result);
 
+        // Generate intelligent tailored user suggestions
+        List<String> suggestions = new ArrayList<>();
+        String officialAlternative = null;
+
+        String brand = regexdetectionservice.getIdentifiedBrand(domain);
+        if (brand == null && domFeatures != null && domFeatures.get("impersonatedBrand") != null) {
+            brand = domFeatures.get("impersonatedBrand").toString().toLowerCase(Locale.ROOT);
+        }
+
+        if (brand != null && (findings.contains("BRAND_IMPERSONATION") || findings.contains("TYPOSQUATTING_DETECTED"))) {
+            String officialDomain = regexdetectionservice.getOfficialDomainForBrand(brand);
+            if (officialDomain != null) {
+                officialAlternative = "https://" + officialDomain;
+                String capBrand = brand.substring(0, 1).toUpperCase(Locale.ROOT) + brand.substring(1);
+                suggestions.add("⚠️ This site appears to mimic " + capBrand + ". We strongly recommend visiting the official site: https://" + officialDomain);
+            }
+        }
+
+        if (findings.contains("TYPOSQUATTING_DETECTED")) {
+            suggestions.add("⚠️ Typosquatting detected: This domain uses subtle character substitutions (e.g. '1' for 'l' or '0' for 'o') to trick visitors into believing it is a reputable brand.");
+        }
+
+        if (findings.contains("EXTERNAL_FORM_PASSWORD_HARVESTING") || (domFeatures != null && Boolean.TRUE.equals(domFeatures.get("hasPasswordField")) && riskscore >= 50)) {
+            suggestions.add("🛡️ Never enter your password, email, or 2FA codes on this site. If you already submitted credentials, change your password immediately on the genuine service.");
+        }
+
+        if (findings.contains("NEWLY_REGISTERED_DOMAIN") || (domainReport != null && domainReport.isNewlyRegistered())) {
+            Long age = domainReport != null ? domainReport.ageInDays() : null;
+            suggestions.add("⏳ This domain was registered recently (" + (age != null ? age + " days old" : "newly created") + "). Exercise caution: avoid downloading files or trusting authentication prompts.");
+        }
+
+        if (findings.contains("IP_ADDRESS_IN_URL")) {
+            suggestions.add("🌐 Legitimate organizations almost never host public services on bare IP addresses. Avoid interacting with this site.");
+        }
+
+        if (findings.contains("SSL_EXPIRED_OR_INVALID") || findings.contains("SELF_SIGNED_SSL_CERT")) {
+            suggestions.add("🔒 Connection lacks valid SSL encryption. Data submitted to this page could be intercepted in transit.");
+        }
+
+        if (findings.contains("SUSPICIOUS_TLD") || findings.contains("SUSPICIOUS_URL_SHORTENER")) {
+            suggestions.add("🔎 This link uses a high-risk TLD or URL shortener. Always expand and inspect the destination before providing personal details.");
+        }
+
+        if (suggestions.isEmpty() && "SUSPICIOUS".equals(finalresult)) {
+            suggestions.add("🚨 Access blocked: This site shows high-risk indicators of phishing or identity theft.");
+            suggestions.add("🛡️ Never enter any passwords, credit card numbers, or personal credentials on this domain.");
+        } else if (suggestions.isEmpty() && "SAFE".equals(finalresult)) {
+            suggestions.add("✅ This domain is verified and clean. Ensure your connection displays the HTTPS padlock and bookmark the official domain for safe browsing.");
+        } else if (suggestions.isEmpty() && "REVIEW".equals(finalresult)) {
+            suggestions.add("⚠️ Exercise caution when interacting with this page. Verify the sender who provided this link before entering sensitive details.");
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("url", normalizedUrl);
         response.put("domain", domain);
@@ -340,6 +392,10 @@ public class detectionservice {
         response.put("message", message);
         response.put("findings", findings);
         response.put("explanations", explanations);
+        response.put("suggestions", suggestions);
+        if (officialAlternative != null) {
+            response.put("officialAlternative", officialAlternative);
+        }
         response.put("modelVersion", modelVersion);
         if (domainReport != null) {
             response.put("domainIntelligence", Map.of(

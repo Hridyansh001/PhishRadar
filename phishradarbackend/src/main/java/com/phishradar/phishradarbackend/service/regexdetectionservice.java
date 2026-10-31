@@ -330,6 +330,53 @@ public class regexdetectionservice {
         return false;
     }
 
+    public String getIdentifiedBrand(String host) {
+        if (host == null) return null;
+        String cleanHost = host.toLowerCase(Locale.ROOT);
+        if (cleanHost.startsWith("www.")) {
+            cleanHost = cleanHost.substring(4);
+        }
+
+        // Direct typosquat pattern identification (e.g. paypa1 -> paypal, g00gle -> google)
+        if (cleanHost.contains("paypa1") || cleanHost.contains("paypai") || cleanHost.contains("paypal")) return "paypal";
+        if (cleanHost.contains("g00gle") || cleanHost.contains("g0ogle") || cleanHost.contains("google")) return "google";
+        if (cleanHost.contains("amaz0n") || cleanHost.contains("amazon")) return "amazon";
+        if (cleanHost.contains("app1e") || cleanHost.contains("appie") || cleanHost.contains("apple")) {
+            if (!cleanHost.contains("pineapple") && !cleanHost.contains("snapple")) return "apple";
+        }
+        if (cleanHost.contains("micr0soft") || cleanHost.contains("micr0s0ft") || cleanHost.contains("microsoft")) return "microsoft";
+        if (cleanHost.contains("netf1ix") || cleanHost.contains("netfiix") || cleanHost.contains("netflix")) return "netflix";
+        if (cleanHost.contains("faceb00k") || cleanHost.contains("faceb0ok") || cleanHost.contains("facebook")) return "facebook";
+        if (cleanHost.contains("b1nance") || cleanHost.contains("binance")) return "binance";
+        if (cleanHost.contains("c0inbase") || cleanHost.contains("coinbase")) return "coinbase";
+
+        // Homoglyph normalized check (1->l, 0->o)
+        String deobfuscated = cleanHost.replace('1', 'l').replace('0', 'o').replace('@', 'a');
+
+        String[] labels = cleanHost.split("\\.");
+        String[] deobfLabels = deobfuscated.split("\\.");
+
+        for (int i = 0; i < labels.length; i++) {
+            String label = labels[i];
+            String deobfLabel = i < deobfLabels.length ? deobfLabels[i] : label;
+
+            for (String brand : BRAND_TO_PRIMARY_DOMAIN.keySet()) {
+                if (label.contains(brand) || deobfLabel.contains(brand)) {
+                    if (brand.equals("apple") && (label.contains("pineapple") || label.contains("grapple") || label.contains("snapple") || label.contains("dapple"))) {
+                        continue;
+                    }
+                    return brand;
+                }
+            }
+        }
+        return null;
+    }
+
+    public String getOfficialDomainForBrand(String brand) {
+        if (brand == null) return null;
+        return BRAND_TO_PRIMARY_DOMAIN.get(brand.toLowerCase(Locale.ROOT));
+    }
+
     /**
      * Extracts the top-level domain (TLD) from a hostname.
      */

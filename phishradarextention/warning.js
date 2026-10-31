@@ -15,11 +15,17 @@
   const regexresult    = p.get('regexresult')  || '';
   const actiontaken    = p.get('actiontaken')  || '';
   const explanationsRaw = p.get('explanations') || '';
+  const suggestionsRaw = p.get('suggestions')   || '';
   const findingsRaw    = p.get('findings')     || '';
+  const officialAlternative = p.get('officialAlternative') || '';
 
   let explanations = [];
   try {
     if (explanationsRaw) explanations = JSON.parse(explanationsRaw);
+  } catch {}
+  let suggestions = [];
+  try {
+    if (suggestionsRaw) suggestions = JSON.parse(suggestionsRaw);
   } catch {}
   let findings = [];
   try {
@@ -115,13 +121,32 @@
         : 'Risk score: ' + score + '/100. This site has characteristics matching known suspicious patterns. Verify the site before entering any sensitive information.');
   }
 
-  // ── Render Explanations / Threat Indicators ────────────────────────────
+  // ── Render Official Alternative Card ─────────────────────────────────
+  const officialAltCard = document.getElementById('official-alt-card');
+  const officialAltLink = document.getElementById('official-alt-link');
+  if (officialAltCard && officialAltLink && officialAlternative) {
+    officialAltCard.style.display = 'block';
+    officialAltLink.href = officialAlternative;
+    try {
+      const cleanHost = new URL(officialAlternative).hostname;
+      officialAltLink.textContent = `Open Official Site (${cleanHost}) ↗`;
+    } catch {
+      officialAltLink.textContent = `Open Official Site ↗`;
+    }
+  }
+
+  // ── Render Explanations / Threat Indicators & Suggestions ─────────────
   const reasonsContainer = document.getElementById('reasons-container');
   const reasonsList = document.getElementById('reasons-list');
   const allReasons = [];
 
+  if (Array.isArray(suggestions) && suggestions.length > 0) {
+    suggestions.forEach(s => allReasons.push(String(s)));
+  }
   if (Array.isArray(explanations) && explanations.length > 0) {
-    explanations.forEach(r => allReasons.push(String(r)));
+    explanations.forEach(r => {
+      if (!allReasons.includes(String(r))) allReasons.push(String(r));
+    });
   }
   if (Array.isArray(findings) && findings.length > 0) {
     findings.forEach(f => {

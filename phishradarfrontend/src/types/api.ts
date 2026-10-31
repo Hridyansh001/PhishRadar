@@ -15,6 +15,8 @@ export interface DetectionResponse {
   message: string;
   findings: string[];
   explanations?: string[];
+  suggestions?: string[];
+  officialAlternative?: string;
   modelVersion?: string;
   domainIntelligence?: {
     ageInDays?: number | string;
