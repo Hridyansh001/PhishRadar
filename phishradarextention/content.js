@@ -147,9 +147,95 @@
     }
   });
 
+  // ── Intelligent DOM Feature Extractor ─────────────────────────────────
+  const TARGET_BRANDS = [
+    { name: 'paypal', pattern: /\bpaypal\b/i, domains: ['paypal.com', 'paypal.me'] },
+    { name: 'google', pattern: /\b(google\s*account|gmail|google\s*drive|google\s*sign[\s-]?in)\b/i, domains: ['google.com', 'accounts.google.com'] },
+    { name: 'microsoft', pattern: /\b(microsoft\s*office|office\s*365|outlook|microsoft\s*account|onedrive)\b/i, domains: ['microsoft.com', 'live.com', 'office.com', 'login.microsoftonline.com'] },
+    { name: 'apple', pattern: /\b(apple\s*id|icloud)\b/i, domains: ['apple.com', 'icloud.com'] },
+    { name: 'amazon', pattern: /\b(amazon\s*prime|amazon\s*sign[\s-]?in)\b/i, domains: ['amazon.com', 'amazon.co.uk'] },
+    { name: 'netflix', pattern: /\bnetflix\b/i, domains: ['netflix.com'] },
+    { name: 'facebook', pattern: /\bfacebook\s*login\b/i, domains: ['facebook.com', 'fb.com'] },
+    { name: 'instagram', pattern: /\binstagram\b/i, domains: ['instagram.com'] },
+    { name: 'chase', pattern: /\bchase\s*(bank|online)?\b/i, domains: ['chase.com'] },
+    { name: 'wellsfargo', pattern: /\bwells\s*fargo\b/i, domains: ['wellsfargo.com'] },
+    { name: 'bankofamerica', pattern: /\bbank\s*of\s*america\b/i, domains: ['bankofamerica.com'] },
+    { name: 'coinbase', pattern: /\bcoinbase\b/i, domains: ['coinbase.com'] },
+    { name: 'metamask', pattern: /\bmetamask\b/i, domains: ['metamask.io'] },
+    { name: 'binance', pattern: /\bbinance\b/i, domains: ['binance.com'] }
+  ];
+
+  function extractDOMFeatures() {
+    try {
+      const hostname = window.location.hostname.toLowerCase();
+      const forms = Array.from(document.querySelectorAll('form'));
+      const passwordInputs = Array.from(document.querySelectorAll('input[type="password"], input[autocomplete*="password"]'));
+      const hiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
+      const submitButtons = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"]'));
+      const iframes = Array.from(document.querySelectorAll('iframe'));
+      const images = Array.from(document.querySelectorAll('img'));
+      const cssLinks = Array.from(document.querySelectorAll('link[rel*="stylesheet"]'));
+      const scripts = Array.from(document.querySelectorAll('script'));
+
+      // Check for form action pointing to a different origin
+      const externalActions = [];
+      let hasExternalFormSubmit = false;
+
+      for (const form of forms) {
+        const action = form.getAttribute('action');
+        if (action && (action.startsWith('http://') || action.startsWith('https://') || action.startsWith('//'))) {
+          try {
+            const parsedAction = new URL(action, window.location.href);
+            if (parsedAction.hostname !== hostname && !parsedAction.hostname.endsWith('.' + hostname)) {
+              hasExternalFormSubmit = true;
+              externalActions.push(parsedAction.hostname);
+            }
+          } catch {}
+        }
+      }
+
+      // Check for brand mismatch (e.g. Page says "Microsoft" or "PayPal" but domain is random)
+      const pageTitle = document.title || '';
+      const bodySnippet = (document.body ? document.body.innerText.substring(0, 3000) : '') + ' ' + pageTitle;
+
+      let suspiciousBrandMismatch = false;
+      let matchedBrand = null;
+
+      for (const brand of TARGET_BRANDS) {
+        if (brand.pattern.test(bodySnippet)) {
+          const isLegitDomain = brand.domains.some(d => hostname === d || hostname.endsWith('.' + d));
+          if (!isLegitDomain) {
+            suspiciousBrandMismatch = true;
+            matchedBrand = brand.name;
+            break;
+          }
+        }
+      }
+
+      return {
+        hasPasswordField: passwordInputs.length > 0,
+        noOfPasswordField: passwordInputs.length,
+        hasExternalFormSubmit: hasExternalFormSubmit,
+        externalFormActions: externalActions.slice(0, 3),
+        noOfiFrame: iframes.length,
+        hasHiddenFields: hiddenInputs.length > 0,
+        noOfHiddenFields: hiddenInputs.length,
+        hasSubmitButton: submitButtons.length > 0 || forms.length > 0,
+        noOfImage: images.length,
+        noOfCSS: cssLinks.length,
+        noOfJS: scripts.length,
+        pageTitle: pageTitle.substring(0, 150),
+        suspiciousBrandMismatch: suspiciousBrandMismatch,
+        impersonatedBrand: matchedBrand
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ── Real-Time Page Load Verification ───────────────────────────────────
   // Catches any page load that escaped onBeforeNavigate (e.g. autofill prerender, fast link clicks)
-  (function verifyCurrentPage() {
+  function verifyCurrentPage() {
     const href = window.location.href;
     if (!href || (!href.startsWith('http://') && !href.startsWith('https://'))) {
       return;
@@ -158,10 +244,13 @@
       return;
     }
 
+    const domFeatures = extractDOMFeatures();
+
     try {
       chrome.runtime.sendMessage({
         type: 'VERIFY_PAGE_LOAD',
-        url: href
+        url: href,
+        domFeatures: domFeatures
       }, (res) => {
         if (chrome.runtime.lastError) return;
         if (res && res.isDangerous && res.warningUrl) {
@@ -169,7 +258,14 @@
         }
       });
     } catch {}
-  })();
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    verifyCurrentPage();
+  } else {
+    document.addEventListener('DOMContentLoaded', verifyCurrentPage);
+    window.addEventListener('load', verifyCurrentPage);
+  }
 
   // ── Global Link Click Interceptor ──────────────────────────────────────
   // When clicking an external link, proactively notify background to begin scanning

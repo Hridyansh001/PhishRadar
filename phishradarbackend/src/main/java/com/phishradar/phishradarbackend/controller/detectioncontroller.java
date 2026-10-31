@@ -30,7 +30,12 @@ public class detectioncontroller {
                     userid = Integer.valueOf(request.get("userid").toString());
                 } catch (NumberFormatException ignored) {}
             }
-            Map<String, Object> result = detectionservice.analyzeurl(url, userid);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> domFeatures = request.get("domFeatures") instanceof Map
+                    ? (Map<String, Object>) request.get("domFeatures")
+                    : null;
+
+            Map<String, Object> result = detectionservice.analyzeurl(url, userid, domFeatures);
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

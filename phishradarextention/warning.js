@@ -14,6 +14,17 @@
   const mlresult       = p.get('mlresult')     || '';
   const regexresult    = p.get('regexresult')  || '';
   const actiontaken    = p.get('actiontaken')  || '';
+  const explanationsRaw = p.get('explanations') || '';
+  const findingsRaw    = p.get('findings')     || '';
+
+  let explanations = [];
+  try {
+    if (explanationsRaw) explanations = JSON.parse(explanationsRaw);
+  } catch {}
+  let findings = [];
+  try {
+    if (findingsRaw) findings = JSON.parse(findingsRaw);
+  } catch {}
 
   const score = parseInt(risckscore, 10) || 0;
 
@@ -102,6 +113,34 @@
       || (isHighRisk
         ? 'Phishing or malware indicators detected. Risk score: ' + score + '/100. Accessing this page may compromise your accounts or device.'
         : 'Risk score: ' + score + '/100. This site has characteristics matching known suspicious patterns. Verify the site before entering any sensitive information.');
+  }
+
+  // ── Render Explanations / Threat Indicators ────────────────────────────
+  const reasonsContainer = document.getElementById('reasons-container');
+  const reasonsList = document.getElementById('reasons-list');
+  const allReasons = [];
+
+  if (Array.isArray(explanations) && explanations.length > 0) {
+    explanations.forEach(r => allReasons.push(String(r)));
+  }
+  if (Array.isArray(findings) && findings.length > 0) {
+    findings.forEach(f => {
+      const friendlyFinding = f.replace(/_/g, ' ').toLowerCase();
+      const formatted = friendlyFinding.charAt(0).toUpperCase() + friendlyFinding.slice(1);
+      if (!allReasons.includes(formatted)) {
+        allReasons.push(formatted);
+      }
+    });
+  }
+
+  if (reasonsContainer && reasonsList && allReasons.length > 0) {
+    reasonsContainer.style.display = 'block';
+    reasonsList.innerHTML = '';
+    allReasons.slice(0, 5).forEach(reason => {
+      const li = document.createElement('li');
+      li.textContent = reason;
+      reasonsList.appendChild(li);
+    });
   }
 
   // ── GO BACK BUTTON ─────────────────────────────────────────────────────

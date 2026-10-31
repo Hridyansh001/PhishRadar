@@ -86,11 +86,12 @@ function shouldSkipUrl(url) {
 }
 
 /**
- * Scan a URL via the backend POST /api/detect endpoint.
+ * Scan a URL via the backend POST /api/detect endpoint with optional DOM telemetry.
  */
-async function scanUrl(url) {
+async function scanUrl(url, domFeatures = null) {
+  const cacheKey = domFeatures ? `${url}#hasDOM` : url;
   // Check memory cache
-  const cached = scanCache.get(url);
+  const cached = scanCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.result;
   }
@@ -100,11 +101,19 @@ async function scanUrl(url) {
   const timeoutId = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
 
   try {
-    // Calls the original backend endpoint: POST /api/detect
+    const payload = {
+      url: url,
+      userid: userid
+    };
+    if (domFeatures) {
+      payload.domFeatures = domFeatures;
+    }
+
+    // Calls the backend endpoint: POST /api/detect
     const response = await fetch(`${API_BASE}/detect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url, userid: userid }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
 
@@ -120,7 +129,7 @@ async function scanUrl(url) {
     }
 
     const result = await response.json();
-    scanCache.set(url, { result, timestamp: Date.now() });
+    scanCache.set(cacheKey, { result, timestamp: Date.now() });
     return result;
   } catch (err) {
     clearTimeout(timeoutId);
@@ -169,6 +178,7 @@ function getWarningPageUrl(originalUrl, scanResult) {
     params.set('message', scanResult.message || '');
     params.set('domain', scanResult.domain || '');
     params.set('findings', JSON.stringify(scanResult.findings || []));
+    params.set('explanations', JSON.stringify(scanResult.explanations || scanResult.intelligenceReasons || []));
     params.set('mlresult', scanResult.mlresult || '');
     params.set('regexresult', scanResult.regexresult || '');
     params.set('actiontaken', scanResult.actiontaken || 'WARNING');
@@ -410,10 +420,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // Real-time verification when a page loads (catches autofill prerenders, fast link clicks)
+  // Real-time verification when a page loads (catches autofill prerenders, fast link clicks & DOM telemetry)
   if (message.type === 'VERIFY_PAGE_LOAD') {
     const tabId = sender.tab ? sender.tab.id : null;
     const url = message.url;
+    const domFeatures = message.domFeatures || null;
     if (!url || shouldSkipUrl(url) || isBypassed(url, tabId)) {
       sendResponse({ isDangerous: false });
       return true;
@@ -424,7 +435,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       try {
-        const result = await scanUrl(url);
+        const result = await scanUrl(url, domFeatures);
         if (isDangerous(result, url) && !isBypassed(url, tabId)) {
           const warningUrl = getWarningPageUrl(url, result);
           sendResponse({ isDangerous: true, warningUrl });

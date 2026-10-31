@@ -14,6 +14,14 @@ export interface DetectionResponse {
   risklevel: 'LOW' | 'MEDIUM' | 'HIGH';
   message: string;
   findings: string[];
+  explanations?: string[];
+  modelVersion?: string;
+  domainIntelligence?: {
+    ageInDays?: number | string;
+    hasMxRecord?: boolean | string;
+    isSslValid?: boolean | string;
+    isNewlyRegistered?: boolean;
+  };
 }
 
 export interface DetectionError {
