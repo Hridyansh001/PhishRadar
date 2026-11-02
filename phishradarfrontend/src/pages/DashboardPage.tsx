@@ -1,46 +1,83 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getDetectionStats, getDetectionHistory, scanUrl, ApiError } from '../services/api';
-import type { DetectionStats, DetectionHistoryItem, DetectionResponse } from '../types/api';
-import { StatCard } from '../components/StatCard';
-import { RiskMeter } from '../components/RiskMeter';
+import {
+  getDetectionStats,
+  getDetectionHistory,
+  scanUrl,
+  checkBackendStatus,
+  ApiError,
+  type DateRangeFilter,
+} from '../services/api';
+import type {
+  DetectionStats,
+  DetectionHistoryItem,
+  DetectionResponse,
+} from '../types/api';
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const effectiveUserId = user?.userid || 1;
 
+  // Telemetry & Records state (100% backend driven)
   const [stats, setStats] = useState<DetectionStats | null>(null);
   const [history, setHistory] = useState<DetectionHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Quick scanner state directly on dashboard
+  // System Health state
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
+  const [isExtensionActive, setIsExtensionActive] = useState<boolean>(false);
+
+  // Date Range Filter state
+  const [dateRange, setDateRange] = useState<DateRangeFilter>('7d');
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+
+  // Quick URL Scanner state
   const [quickUrl, setQuickUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<DetectionResponse | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  // Table filtering & search
-  const [filterVerdict, setFilterVerdict] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItem, setSelectedItem] = useState<DetectionHistoryItem | null>(null);
+  // Check extension activity on mount and when DOM attributes change
+  useEffect(() => {
+    const checkExt = () => {
+      const active =
+        document.documentElement.getAttribute('data-phishradar-extension-active') === 'true' ||
+        Boolean((window as unknown as { __PHISHRADAR_EXT__?: boolean }).__PHISHRADAR_EXT__);
+      setIsExtensionActive(active);
+    };
 
-  const loadData = async () => {
+    checkExt();
+    const interval = setInterval(checkExt, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch real backend data and status
+  const loadDashboardData = async (range: DateRangeFilter = dateRange) => {
     setIsLoading(true);
     setError(null);
+
     try {
+      // 1. Probe backend health
+      const health = await checkBackendStatus();
+      setIsBackendOnline(health.online);
+
+      // 2. Fetch real stats and scan telemetry
       const [statsData, historyData] = await Promise.all([
-        getDetectionStats(effectiveUserId),
-        getDetectionHistory(effectiveUserId),
+        getDetectionStats(effectiveUserId, range),
+        getDetectionHistory(effectiveUserId, range),
       ]);
+
       setStats(statsData);
       setHistory(historyData);
     } catch (err) {
+      setIsBackendOnline(false);
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError('Could not connect to PhishRadar backend on localhost:8080.');
+        setError('Unable to load telemetry. Please verify the Spring Boot backend on localhost:8080.');
       }
     } finally {
       setIsLoading(false);
@@ -48,9 +85,10 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [effectiveUserId]);
+    loadDashboardData(dateRange);
+  }, [effectiveUserId, dateRange]);
 
+  // Handle Quick URL Scan submission directly to Spring Boot backend
   const handleQuickScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickUrl.trim()) return;
@@ -65,22 +103,25 @@ export function DashboardPage() {
         formattedUrl = `https://${formattedUrl}`;
       }
 
+      // Submit actual scan request to POST /api/detect
       const result = await scanUrl(formattedUrl, effectiveUserId);
       setScanResult(result);
-      // Refresh local telemetry
-      await loadData();
+      setQuickUrl('');
+
+      // Refresh telemetry using the actual new record
+      await loadDashboardData(dateRange);
     } catch (err) {
       if (err instanceof ApiError) {
         setScanError(err.message);
       } else {
-        setScanError('Scan failed. Please verify the URL or backend connection.');
+        setScanError('Failed to inspect URL. Verify the backend connection on port 8080.');
       }
     } finally {
       setIsScanning(false);
     }
   };
 
-  // KPI Calculations
+  // Extract strict backend-driven metrics
   const total = stats?.totalScans ?? history.length ?? 0;
   const safe = stats?.safe ?? history.filter((h) => h.fresult === 'SAFE').length ?? 0;
   const review = stats?.review ?? history.filter((h) => h.fresult === 'REVIEW').length ?? 0;
@@ -90,889 +131,974 @@ export function DashboardPage() {
   const reviewPct = total > 0 ? Math.round((review / total) * 100) : 0;
   const suspiciousPct = total > 0 ? Math.round((suspicious / total) * 100) : 0;
 
-  // Filtered History
-  const filteredHistory = history.filter((item) => {
-    const matchesFilter = filterVerdict === 'ALL' || item.fresult === filterVerdict;
-    const matchesSearch =
-      searchTerm.trim() === '' ||
-      (item.url && item.url.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (item.domain && item.domain.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesFilter && matchesSearch;
-  });
+  // Donut chart math (Radius 50, Circumference = 314.159)
+  const radius = 50;
+  const circumference = 2 * Math.PI * radius;
+  const safeStroke = (safePct / 100) * circumference;
+  const reviewStroke = (reviewPct / 100) * circumference;
+  const suspiciousStroke = (suspiciousPct / 100) * circumference;
+
+  const safeOffset = 0;
+  const reviewOffset = -safeStroke;
+  const suspiciousOffset = -(safeStroke + reviewStroke);
+
+  const formatTimestamp = (dateStr?: string | null): string => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    } catch {
+      return '—';
+    }
+  };
+
+  const dateRangeLabels: Record<DateRangeFilter, string> = {
+    '24h': 'Last 24 hours',
+    '7d': 'Last 7 days',
+    '30d': 'Last 30 days',
+    'all': 'All time',
+  };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '36px 24px 64px' }}>
-      {/* Top Header / Welcome Banner */}
+    <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+      {/* Decorative Pixel Stairs (Top Right Accent) */}
+      <div style={{
+        position: 'absolute',
+        top: '-16px',
+        right: '120px',
+        opacity: 0.4,
+        pointerEvents: 'none',
+      }}>
+        <svg width="60" height="40" viewBox="0 0 60 40" fill="none">
+          <rect x="0" y="24" width="8" height="8" fill="#15803D" />
+          <rect x="8" y="16" width="8" height="8" fill="#16A34A" />
+          <rect x="16" y="8" width="8" height="8" fill="#22C55E" />
+          <rect x="24" y="0" width="8" height="8" fill="#86EFAC" />
+        </svg>
+      </div>
+
+      {/* Top Header Section */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: '28px',
         flexWrap: 'wrap',
-        gap: '20px',
+        gap: '16px',
       }}>
         <div>
+          {/* Breadcrumb / Section Tag */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            color: '#15803D',
+            marginBottom: '6px',
+          }}>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              backgroundColor: '#15803D',
+              borderRadius: '1px',
+              display: 'inline-block',
+            }} />
+            <span>Overview</span>
+          </div>
+
           <h1 style={{
-            fontSize: '1.95rem',
+            fontSize: '2.05rem',
             fontWeight: 800,
             color: '#111827',
             letterSpacing: '-0.02em',
             margin: 0,
+            lineHeight: 1.2,
           }}>
             Security Dashboard
           </h1>
-
-          <p style={{ color: '#4b5563', fontSize: '0.95rem', marginTop: '6px', maxWidth: '650px' }}>
-            {user?.uname ? `Welcome, ${user.uname}. ` : ''}
-            Monitor evaluated domains, inspect unknown links, and review real-time threat verdicts.
+          <p style={{
+            color: '#6B7280',
+            fontSize: '0.92rem',
+            marginTop: '4px',
+            marginBottom: 0,
+          }}>
+            Monitor threats, scan links, and keep your browsing safe.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => loadData()}
-            className="btn-secondary"
-            style={{ padding: '9px 16px', fontSize: '0.88rem' }}
-            title="Refresh scan telemetry"
+        {/* Right Header Controls: Date Filter Dropdown & Full URL Scanner */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+          {/* Date Range Selector */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setShowDateDropdown(!showDateDropdown)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#374151',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>{dateRangeLabels[dateRange]}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            {showDateDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '6px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+                zIndex: 50,
+                minWidth: '150px',
+                overflow: 'hidden',
+              }}>
+                {(['24h', '7d', '30d', 'all'] as DateRangeFilter[]).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      setDateRange(r);
+                      setShowDateDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '9px 14px',
+                      textAlign: 'left',
+                      fontSize: '0.84rem',
+                      color: dateRange === r ? '#15803D' : '#374151',
+                      fontWeight: dateRange === r ? 700 : 500,
+                      backgroundColor: dateRange === r ? '#F0FDF4' : '#FFFFFF',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'block',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (dateRange !== r) e.currentTarget.style.backgroundColor = '#F9FAFB';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (dateRange !== r) e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    }}
+                  >
+                    {dateRangeLabels[r]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Full URL Scanner Button */}
+          <Link
+            to="/scanner"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#111827',
+              color: '#FFFFFF',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              textDecoration: 'none',
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1F2937')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#111827')}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            <span>Full URL Scanner</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="7" y1="17" x2="17" y2="7"/>
+              <polyline points="7 7 17 7 17 17"/>
             </svg>
-            Refresh
-          </button>
-          <Link to="/" className="btn-primary" style={{ padding: '9px 18px', fontSize: '0.88rem' }}>
-            Full URL Scanner &rarr;
           </Link>
         </div>
       </div>
 
-      {/* Backend Alert (if any) */}
+      {/* Error Notice with Retry */}
       {error && (
         <div style={{
-          padding: '14px 18px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: 'var(--radius-md)',
-          color: '#991b1b',
+          padding: '12px 18px',
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '8px',
+          color: '#B91C1C',
           marginBottom: '24px',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px',
+          alignItems: 'center',
+          fontSize: '0.88rem',
         }}>
           <div>
-            <div style={{ fontWeight: 600 }}>Backend Notice</div>
-            <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{error}</div>
+            <strong>Backend Notice:</strong> {error}
           </div>
           <button
-            onClick={() => setError(null)}
-            style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 600, padding: '4px 8px' }}
+            type="button"
+            onClick={() => loadDashboardData(dateRange)}
+            style={{
+              padding: '5px 12px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #FCA5A5',
+              borderRadius: '6px',
+              color: '#B91C1C',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
           >
-            Dismiss
+            Retry Connection
           </button>
         </div>
       )}
 
-      {/* Quick Inspection Section - Clean & Frameless */}
-      <div style={{
-        padding: '0 0 28px 0',
-        marginBottom: '32px',
-        borderBottom: '1px solid #e5e7eb',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-          <div>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827' }}>
-              Quick Link Inspection
-            </span>
-            <span style={{ fontSize: '0.82rem', color: '#6b7280', marginLeft: '10px' }}>
-              Instant heuristic + ML analysis right from your dashboard
-            </span>
+      {/* Open Quick URL Scan Workspace Bar (Frameless & Clean) */}
+      <div style={{ marginBottom: '32px' }}>
+        <form
+          onSubmit={handleQuickScan}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            width: '100%',
+          }}
+        >
+          {/* Left Title with Scan Icon */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexShrink: 0,
+            paddingRight: '12px',
+            borderRight: '1px solid #E5E7EB',
+            color: '#111827',
+            fontWeight: 700,
+            fontSize: '0.94rem',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>Quick URL Scan</span>
           </div>
 
-          {/* Quick test pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#6b7280' }}>
-            <span>Try sample:</span>
-            <button
-              onClick={() => setQuickUrl('https://github.com')}
-              style={{
-                color: '#15803d',
-                backgroundColor: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-              }}
-            >
-              github.com (Safe)
-            </button>
-            <button
-              onClick={() => setQuickUrl('http://paypal-security-update-login.com')}
-              style={{
-                color: '#b91c1c',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-              }}
-            >
-              paypal-fake.com (Phish)
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleQuickScan} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '280px', position: 'relative' }}>
-            <span style={{
-              position: 'absolute',
-              left: '14px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#9ca3af',
-              display: 'flex',
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </span>
+          {/* Clean Framed Input Field Only */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flex: 1,
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #D1D5DB',
+            borderRadius: '8px',
+            padding: '9px 14px',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
             <input
               type="text"
               value={quickUrl}
               onChange={(e) => setQuickUrl(e.target.value)}
-              placeholder="Paste or type any URL to inspect (e.g., https://example-bank.com)..."
+              placeholder="Paste or type any URL to inspect..."
+              disabled={isScanning}
               style={{
                 width: '100%',
-                padding: '11px 16px 11px 40px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #d1d5db',
+                border: 'none',
+                outline: 'none',
                 fontSize: '0.92rem',
                 color: '#111827',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.03)',
+                backgroundColor: 'transparent',
               }}
             />
           </div>
 
+          {/* Scan Action Button */}
           <button
             type="submit"
             disabled={isScanning || !quickUrl.trim()}
-            className="btn-primary"
             style={{
-              padding: '11px 24px',
-              fontSize: '0.92rem',
-              whiteSpace: 'nowrap',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              backgroundColor: isScanning || !quickUrl.trim() ? '#9CA3AF' : '#111827',
+              color: '#FFFFFF',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: isScanning || !quickUrl.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexShrink: 0,
+              transition: 'all 0.15s ease',
             }}
           >
-            {isScanning ? 'Analyzing...' : 'Scan URL'}
+            {isScanning ? (
+              <>
+                <span className="spinner" style={{ width: '13px', height: '13px', borderWidth: '2px' }} />
+                <span>Scanning...</span>
+              </>
+            ) : (
+              <>
+                <span>Scan URL</span>
+                <span>→</span>
+              </>
+            )}
           </button>
         </form>
 
-        {/* Quick Scan Error */}
+        {/* Scan Error Message */}
         {scanError && (
           <div style={{
-            marginTop: '16px',
-            padding: '10px 14px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
+            marginTop: '10px',
+            padding: '8px 12px',
+            backgroundColor: '#FEF2F2',
+            color: '#B91C1C',
+            fontSize: '0.84rem',
             borderRadius: '6px',
-            fontSize: '0.85rem',
-            color: '#b91c1c',
           }}>
             {scanError}
           </div>
         )}
 
-        {/* Quick Scan Inline Result */}
+        {/* Real Scan Result Feedback Card */}
         {scanResult && (
           <div style={{
-            marginTop: '18px',
-            padding: '16px 20px',
+            marginTop: '14px',
+            padding: '12px 16px',
+            backgroundColor: scanResult.finalresult === 'SAFE' ? '#F0FDF4' : scanResult.finalresult === 'REVIEW' ? '#FFFBEB' : '#FEF2F2',
+            border: `1px solid ${scanResult.finalresult === 'SAFE' ? '#BBF7D0' : scanResult.finalresult === 'REVIEW' ? '#FDE68A' : '#FECACA'}`,
             borderRadius: '8px',
-            backgroundColor: scanResult.finalresult === 'SUSPICIOUS' ? '#fef2f2' :
-              scanResult.finalresult === 'REVIEW' ? '#fffbeb' : '#f0fdf4',
-            border: `1px solid ${
-              scanResult.finalresult === 'SUSPICIOUS' ? '#fecaca' :
-              scanResult.finalresult === 'REVIEW' ? '#fde68a' : '#bbf7d0'
-            }`,
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '16px',
+            alignItems: 'center',
             flexWrap: 'wrap',
+            gap: '10px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              <span className={`badge ${
-                scanResult.finalresult === 'SUSPICIOUS' ? 'badge-danger' :
-                scanResult.finalresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
-              }`} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{
+                padding: '4px 9px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                backgroundColor: scanResult.finalresult === 'SAFE' ? '#DCFCE7' : scanResult.finalresult === 'REVIEW' ? '#FEF3C7' : '#FEE2E2',
+                color: scanResult.finalresult === 'SAFE' ? '#15803D' : scanResult.finalresult === 'REVIEW' ? '#B45309' : '#B91C1C',
+              }}>
                 {scanResult.finalresult}
               </span>
-
-              <div>
-                <div style={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
-                  {scanResult.domain || scanResult.url}
-                </div>
-                <div style={{ fontSize: '0.82rem', color: '#4b5563', marginTop: '2px' }}>
-                  Risk Score: <strong>{scanResult.risckscore}/100</strong> ({scanResult.risklevel} Risk) &bull; ML: {scanResult.mlresult} &bull; Action: {scanResult.actiontaken}
-                </div>
-                {scanResult.officialAlternative && (
-                  <div style={{ marginTop: '4px', fontSize: '0.82rem' }}>
-                    <a
-                      href={scanResult.officialAlternative}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'underline' }}
-                    >
-                      Official Website: {scanResult.officialAlternative} ↗
-                    </a>
-                  </div>
-                )}
-                {scanResult.suggestions && scanResult.suggestions.length > 0 && (
-                  <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#374151' }}>
-                    {scanResult.suggestions[0]}
-                  </div>
-                )}
-              </div>
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#111827' }}>
+                {scanResult.domain || scanResult.url}
+              </span>
+              <span style={{ fontSize: '0.82rem', color: '#6B7280' }}>
+                Risk Score: <strong>{scanResult.risckscore ?? scanResult.riskscore ?? 0} / 100</strong>
+              </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <Link
-                to={`/?url=${encodeURIComponent(scanResult.url)}`}
-                style={{
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  color: '#111827',
-                  textDecoration: 'underline',
-                  padding: '6px 10px',
-                }}
-              >
-                Deep Report &rarr;
-              </Link>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button
-                onClick={() => setScanResult(null)}
+                type="button"
+                onClick={() => navigate('/scanner')}
                 style={{
-                  padding: '6px 10px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#111827',
                   fontSize: '0.82rem',
-                  color: '#6b7280',
                   fontWeight: 600,
+                  textDecoration: 'underline',
                   cursor: 'pointer',
                 }}
               >
-                ✕
+                Inspect in Scanner &rarr;
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanResult(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6B7280',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                }}
+              >
+                ×
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* 4 Focused KPI Cards - Click to filter recent scans */}
+      {/* Analytics Summary Row — Open & Editorial (No Box Outlines) */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '18px',
-        marginBottom: '28px',
+        padding: '8px 0 32px 0',
+        marginBottom: '36px',
+        borderBottom: '1px solid #E5E7EB',
       }}>
-        <StatCard
-          title="Total Scans Logged"
-          value={isLoading ? '...' : total}
-          subtitle="Click to view all activity"
-          color="neutral"
-          badge={total > 0 ? `${total} logs` : undefined}
-          isActive={filterVerdict === 'ALL'}
-          onClick={() => setFilterVerdict('ALL')}
-          icon={(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
-          )}
-        />
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.2fr 1.1fr 1.4fr',
+          gap: '32px',
+          alignItems: 'center',
+        }}>
+          {/* Part 1: Total Scans and Legend Breakdown */}
+          <div>
+            <div style={{
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              color: '#6B7280',
+              marginBottom: '4px',
+            }}>
+              Total Scans
+            </div>
 
-        <StatCard
-          title="Safe & Clean Domains"
-          value={isLoading ? '...' : safe}
-          subtitle={`${safePct}% of analyzed traffic`}
-          color="green"
-          badge={total > 0 ? `${safePct}%` : undefined}
-          isActive={filterVerdict === 'SAFE'}
-          onClick={() => setFilterVerdict('SAFE')}
-          icon={(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <polyline points="9 12 11 14 15 10" />
-            </svg>
-          )}
-        />
+            <div style={{
+              fontSize: '2.8rem',
+              fontWeight: 800,
+              color: '#111827',
+              lineHeight: 1,
+              marginBottom: '10px',
+            }}>
+              {isLoading ? '—' : total}
+            </div>
 
-        <StatCard
-          title="Requires Review"
-          value={isLoading ? '...' : review}
-          subtitle={`${reviewPct}% ambiguous or flagged`}
-          color="amber"
-          badge={total > 0 ? `${reviewPct}%` : undefined}
-          isActive={filterVerdict === 'REVIEW'}
-          onClick={() => setFilterVerdict('REVIEW')}
-          icon={(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          )}
-        />
+            {/* Dynamic Trend Indicator */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              color: total > 0 ? '#16A34A' : '#6B7280',
+              marginBottom: '18px',
+            }}>
+              {total > 0 ? (
+                <>
+                  <span>↗</span>
+                  <span>
+                    {stats?.trendPercentage !== undefined
+                      ? `+${stats.trendPercentage}% from ${dateRangeLabels[dateRange].toLowerCase()}`
+                      : `Active telemetry for ${dateRangeLabels[dateRange].toLowerCase()}`}
+                  </span>
+                </>
+              ) : (
+                <span>No scans recorded in this window</span>
+              )}
+            </div>
 
-        <StatCard
-          title="Threats & Phishing Blocked"
-          value={isLoading ? '...' : suspicious}
-          subtitle={`${suspiciousPct}% confirmed malicious`}
-          color="red"
-          badge={total > 0 ? `${suspiciousPct}%` : undefined}
-          isActive={filterVerdict === 'SUSPICIOUS'}
-          onClick={() => setFilterVerdict('SUSPICIOUS')}
-          icon={(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          )}
-        />
-      </div>
+            {/* Breakdown Legend List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '9px', height: '9px', backgroundColor: '#16A34A', borderRadius: '2px' }} />
+                  <span style={{ color: '#374151', fontWeight: 500 }}>Safe & Clean</span>
+                </div>
+                <span style={{ fontWeight: 700, color: '#111827' }}>
+                  {safe} ({safePct}%)
+                </span>
+              </div>
 
-      {/* Two Column Layout: Threat Distribution + Security Summary */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '24px',
-        marginBottom: '28px',
-      }}>
-        {/* Left: Threat Severity Breakdown */}
-        <div style={{ padding: '0 0 24px 0', borderBottom: '1px solid #e5e7eb' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827' }}>
-              Verdict Ratio & Threat Breakdown
-            </h2>
-            <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>
-              {total} Scans Evaluated
-            </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '9px', height: '9px', backgroundColor: '#F59E0B', borderRadius: '2px' }} />
+                  <span style={{ color: '#374151', fontWeight: 500 }}>Requires Review</span>
+                </div>
+                <span style={{ fontWeight: 700, color: '#111827' }}>
+                  {review} ({reviewPct}%)
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '9px', height: '9px', backgroundColor: '#DC2626', borderRadius: '2px' }} />
+                  <span style={{ color: '#374151', fontWeight: 500 }}>Threats & Blocked</span>
+                </div>
+                <span style={{ fontWeight: 700, color: '#111827' }}>
+                  {suspicious} ({suspiciousPct}%)
+                </span>
+              </div>
+            </div>
           </div>
 
-          <p style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '20px' }}>
-            Classification distribution between clean web traffic and flagged phishing threats.
-          </p>
-
-          {/* Clean Segmented Progress Bar */}
+          {/* Part 2: Center SVG Donut Chart */}
           <div style={{
-            height: '14px',
-            borderRadius: '9999px',
-            overflow: 'hidden',
             display: 'flex',
-            backgroundColor: '#f3f4f6',
-            marginBottom: '20px',
-            border: '1px solid #e5e7eb',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-            <div style={{ width: `${safePct}%`, backgroundColor: '#15803d', transition: 'width 0.4s ease' }} title={`Safe: ${safePct}%`} />
-            <div style={{ width: `${reviewPct}%`, backgroundColor: '#b45309', transition: 'width 0.4s ease' }} title={`Review: ${reviewPct}%`} />
-            <div style={{ width: `${suspiciousPct}%`, backgroundColor: '#b91c1c', transition: 'width 0.4s ease' }} title={`Suspicious: ${suspiciousPct}%`} />
+            <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+              <svg width="150" height="150" viewBox="0 0 140 140">
+                {/* Background Ring */}
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  stroke={total === 0 ? '#E5E7EB' : '#F3F4F6'}
+                  strokeWidth="18"
+                />
+
+                {total > 0 && (
+                  <g transform="rotate(-90 70 70)">
+                    {/* Safe Ring Segment (Green) */}
+                    {safePct > 0 && (
+                      <circle
+                        cx="70"
+                        cy="70"
+                        r={radius}
+                        fill="none"
+                        stroke="#16A34A"
+                        strokeWidth="18"
+                        strokeDasharray={`${safeStroke} ${circumference}`}
+                        strokeDashoffset={safeOffset}
+                      />
+                    )}
+
+                    {/* Review Ring Segment (Amber) */}
+                    {reviewPct > 0 && (
+                      <circle
+                        cx="70"
+                        cy="70"
+                        r={radius}
+                        fill="none"
+                        stroke="#F59E0B"
+                        strokeWidth="18"
+                        strokeDasharray={`${reviewStroke} ${circumference}`}
+                        strokeDashoffset={reviewOffset}
+                      />
+                    )}
+
+                    {/* Suspicious / Blocked Ring Segment (Red) */}
+                    {suspiciousPct > 0 && (
+                      <circle
+                        cx="70"
+                        cy="70"
+                        r={radius}
+                        fill="none"
+                        stroke="#DC2626"
+                        strokeWidth="18"
+                        strokeDasharray={`${suspiciousStroke} ${circumference}`}
+                        strokeDashoffset={suspiciousOffset}
+                      />
+                    )}
+                  </g>
+                )}
+              </svg>
+
+              {/* Inside Donut Center Metrics */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}>
+                <div style={{
+                  fontSize: '1.65rem',
+                  fontWeight: 800,
+                  color: '#111827',
+                  lineHeight: 1.1,
+                }}>
+                  {isLoading ? '…' : total}
+                </div>
+                <div style={{
+                  fontSize: '0.78rem',
+                  color: '#6B7280',
+                  fontWeight: 600,
+                }}>
+                  Scans
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Breakdown Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#15803d' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Safe & Clean (&lt; 20 Score)</span>
-              </div>
-              <span style={{ fontWeight: 600, color: '#374151' }}>
-                {safe} ({safePct}%)
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#b45309' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Requires Review (20 – 60 Score)</span>
-              </div>
-              <span style={{ fontWeight: 600, color: '#374151' }}>
-                {review} ({reviewPct}%)
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#b91c1c' }} />
-                <span style={{ color: '#111827', fontWeight: 500 }}>Threats & Blocked (&gt; 60 Score)</span>
-              </div>
-              <span style={{ fontWeight: 600, color: '#374151' }}>
-                {suspicious} ({suspiciousPct}%)
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Security & Defense Overview */}
-        <div style={{ padding: '0 0 24px 0', borderBottom: '1px solid #e5e7eb' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827' }}>
-              Protection Summary & Active Defense
-            </h2>
-            <span className="badge badge-safe">PROTECTED</span>
-          </div>
-
-          <p style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '20px' }}>
-            Autonomous protection mechanisms defending your web browsing experience.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Part 3: Active Defense System Statuses */}
+          <div style={{
+            borderLeft: '1px solid #E5E7EB',
+            paddingLeft: '28px',
+          }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 0',
-              borderBottom: '1px solid #f3f4f6',
+              marginBottom: '16px',
             }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
-                  Chrome MV3 Extension Relay
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>
-                  Intercepts high-risk tabs before sensitive credentials can be exposed.
-                </div>
-              </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                ONLINE
+              <h2 style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: '#111827',
+                margin: 0,
+              }}>
+                Active Defense
+              </h2>
+              <span style={{
+                padding: '3px 9px',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.04em',
+                backgroundColor: isBackendOnline ? '#DCFCE7' : '#FEE2E2',
+                color: isBackendOnline ? '#15803D' : '#B91C1C',
+              }}>
+                {isBackendOnline ? 'PROTECTED' : 'OFFLINE'}
               </span>
             </div>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 0',
-              borderBottom: '1px solid #f3f4f6',
-            }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
-                  Weka Random Forest Classifier
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Row 1: Chrome Extension Relay */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19.439 7.85c-.049-.322-.24-.602-.519-.757L14.39 4.417a1.455 1.455 0 0 0-1.42 0L8.44 6.96c-.28.155-.47.435-.52.757l-.99 6.467c-.07.457.14 0.916.53 1.17l5.24 3.42c.43.28 1 .28 1.43 0l5.24-3.42c.39-.254.6-.713.53-1.17l-.99-6.467z"/>
+                  </svg>
+                  <span style={{ fontSize: '0.86rem', color: '#374151', fontWeight: 600 }}>
+                    Chrome MV3 Extension Relay
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>
-                  100-tree supervised decision forest trained on verified phishing corpora.
-                </div>
+                <span style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: isExtensionActive ? '#16A34A' : '#9CA3AF',
+                }}>
+                  {isExtensionActive ? 'Online' : 'Not Detected'}
+                </span>
               </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                ACTIVE
-              </span>
-            </div>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 0',
-              borderBottom: '1px solid #f3f4f6',
-            }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#111827' }}>
-                  Heuristic & Lexical Rule Engine
+              {/* Row 2: Weka Random Forest Classifier */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                  <span style={{ fontSize: '0.86rem', color: '#374151', fontWeight: 600 }}>
+                    Weka Random Forest Classifier
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>
-                  Inspects entropy, homoglyphs, IP hostnames, and subdomain nesting.
-                </div>
+                <span style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: isBackendOnline ? '#16A34A' : '#9CA3AF',
+                }}>
+                  {isBackendOnline ? 'Active' : 'Status unavailable'}
+                </span>
               </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                ACTIVE
-              </span>
+
+              {/* Row 3: Heuristic & Lexical Rule Engine */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                  <span style={{ fontSize: '0.86rem', color: '#374151', fontWeight: 600 }}>
+                    Heuristic & Lexical Rule Engine
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: isBackendOnline ? '#16A34A' : '#9CA3AF',
+                }}>
+                  {isBackendOnline ? 'Active' : 'Status unavailable'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Detections Feed — Frameless */}
-      <div style={{ padding: '16px 0 0 0' }}>
+      {/* Recent Detection Activity Section (Frameless Open Table) */}
+      <div>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px',
-          flexWrap: 'wrap',
-          gap: '16px',
+          alignItems: 'flex-end',
+          marginBottom: '16px',
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827' }}>
-                Recent Detection Activity
-              </h2>
-              {filterVerdict !== 'ALL' && (
-                <span className="badge badge-neutral" style={{ fontSize: '0.72rem' }}>
-                  Filter: {filterVerdict}
-                </span>
-              )}
-            </div>
-            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '2px' }}>
-              Verified logs of inspected domains from your browser and scanner
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: '#111827',
+              margin: 0,
+            }}>
+              Recent Detection Activity
+            </h2>
+            <p style={{
+              fontSize: '0.84rem',
+              color: '#6B7280',
+              margin: '3px 0 0 0',
+            }}>
+              Latest scanned URLs and their security verdicts.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Search Input */}
-            <div style={{ position: 'relative', minWidth: '220px' }}>
-              <span style={{
-                position: 'absolute',
-                left: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#9ca3af',
-                display: 'flex',
-              }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search domain or URL..."
-                style={{
-                  width: '100%',
-                  padding: '7px 12px 7px 30px',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  fontSize: '0.85rem',
-                  color: '#111827',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            {/* Verdict Filter Buttons */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {['ALL', 'SAFE', 'REVIEW', 'SUSPICIOUS'].map((verdict) => (
-                <button
-                  key={verdict}
-                  onClick={() => setFilterVerdict(verdict)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    backgroundColor: filterVerdict === verdict ? '#000000' : '#ffffff',
-                    color: filterVerdict === verdict ? '#ffffff' : '#374151',
-                    border: filterVerdict === verdict ? '1px solid #000000' : '1px solid #d1d5db',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {verdict}
-                </button>
-              ))}
-            </div>
-
-            <Link
-              to="/history"
-              style={{
-                fontSize: '0.85rem',
-                color: '#111827',
-                fontWeight: 600,
-                padding: '6px 10px',
-                textDecoration: 'underline',
-              }}
-            >
-              Full Log &rarr;
-            </Link>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
-            <div>Loading security telemetry...</div>
-          </div>
-        ) : filteredHistory.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '44px 20px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '8px',
-            border: '1px dashed #d1d5db',
-          }}>
-            <div style={{ fontWeight: 600, color: '#111827', fontSize: '1rem' }}>
-              {history.length === 0 ? 'No scans recorded yet' : 'No records match your filter'}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '4px', maxWidth: '420px', margin: '4px auto 0' }}>
-              {history.length === 0
-                ? 'Use the Quick Link Inspection tool above or browse with the PhishRadar extension.'
-                : 'Try clearing your search query or switching to the ALL filter.'}
-            </div>
-
-            {history.length > 0 && (
-              <button
-                onClick={() => { setFilterVerdict('ALL'); setSearchTerm(''); }}
-                className="btn-secondary"
-                style={{ marginTop: '16px', fontSize: '0.82rem', padding: '6px 14px' }}
-              >
-                Reset Filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-              <thead>
-                <tr style={{
-                  borderBottom: '1px solid #e5e7eb',
-                  color: '#6b7280',
-                  fontSize: '0.75rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}>
-                  <th style={{ padding: '12px 14px' }}>Domain / Target URL</th>
-                  <th style={{ padding: '12px 14px' }}>Verdict</th>
-                  <th style={{ padding: '12px 14px' }}>Risk Score</th>
-                  <th style={{ padding: '12px 14px' }}>ML Classifier</th>
-                  <th style={{ padding: '12px 14px' }}>Action</th>
-                  <th style={{ padding: '12px 14px' }}>Timestamp</th>
-                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHistory.slice(0, 10).map((item) => (
-                  <tr
-                    key={item.did}
-                    style={{
-                      borderBottom: '1px solid #f3f4f6',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <td style={{ padding: '14px', maxWidth: '320px' }}>
-                      <div style={{ fontWeight: 600, color: '#111827' }}>
-                        {item.domain || 'Domain record'}
-                      </div>
-                      <div style={{
-                        fontSize: '0.78rem',
-                        color: '#6b7280',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {item.url || `Website ID #${item.wid}`}
-                      </div>
-                    </td>
-
-                    <td style={{ padding: '14px' }}>
-                      <span className={`badge ${
-                        item.fresult === 'SUSPICIOUS' ? 'badge-danger' :
-                        item.fresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
-                      }`}>
-                        {item.fresult}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          color: item.riskscore > 60 ? '#b91c1c' :
-                            item.riskscore >= 20 ? '#b45309' : '#15803d',
-                        }}>
-                          {item.riskscore}
-                        </span>
-                        <div style={{
-                          width: '40px',
-                          height: '6px',
-                          borderRadius: '3px',
-                          backgroundColor: '#e5e7eb',
-                          overflow: 'hidden',
-                        }}>
-                          <div style={{
-                            width: `${Math.min(100, item.riskscore)}%`,
-                            height: '100%',
-                            backgroundColor: item.riskscore > 60 ? '#b91c1c' :
-                              item.riskscore >= 20 ? '#b45309' : '#15803d',
-                          }} />
-                        </div>
-                      </div>
-                    </td>
-
-                    <td style={{ padding: '14px' }}>
-                      <span style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        color: item.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d',
-                      }}>
-                        {item.mlresult}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '14px' }}>
-                      <span className="badge badge-neutral" style={{ fontSize: '0.72rem' }}>
-                        {item.actiontaken}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '14px', fontSize: '0.8rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {item.detectedat
-                        ? new Date(item.detectedat).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                        : 'Just now'}
-                    </td>
-
-                    <td style={{ padding: '14px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => setSelectedItem(item)}
-                        className="btn-secondary"
-                        style={{ padding: '5px 12px', fontSize: '0.78rem' }}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Inspect Item Modal (Clean White Theme) */}
-      {selectedItem && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 100,
-          backgroundColor: 'rgba(0, 0, 0, 0.45)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-        }}>
-          <div
+          <Link
+            to="/detections"
             style={{
-              width: '100%',
-              maxWidth: '540px',
-              padding: '28px',
-              backgroundColor: '#ffffff',
-              borderRadius: '8px',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              position: 'relative',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              color: '#111827',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
           >
-            <button
-              onClick={() => setSelectedItem(null)}
-              style={{
-                position: 'absolute',
-                top: '18px',
-                right: '18px',
-                color: '#6b7280',
-                fontSize: '1.2rem',
-                cursor: 'pointer',
-              }}
-              aria-label="Close modal"
-            >
-              ✕
-            </button>
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '18px' }}>
-              <RiskMeter
-                score={selectedItem.riskscore}
-                verdict={selectedItem.fresult}
-                size={140}
-              />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginTop: '10px' }}>
-                Scan Record #{selectedItem.did}
-              </h3>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.88rem' }}>
-              <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Destination URL
-                </span>
-                <span style={{ color: '#111827', wordBreak: 'break-all', fontWeight: 600 }}>
-                  {selectedItem.url || 'Not recorded'}
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    Final Verdict
-                  </span>
-                  <span className={`badge ${
-                    selectedItem.fresult === 'SUSPICIOUS' ? 'badge-danger' :
-                    selectedItem.fresult === 'REVIEW' ? 'badge-review' : 'badge-safe'
-                  }`} style={{ marginTop: '4px' }}>
-                    {selectedItem.fresult}
-                  </span>
-                </div>
-
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    Action Taken
-                  </span>
-                  <span style={{ fontWeight: 600, color: '#111827', marginTop: '4px', display: 'block' }}>
-                    {selectedItem.actiontaken}
-                  </span>
-                </div>
-
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    ML Random Forest
-                  </span>
-                  <span style={{ fontWeight: 600, color: selectedItem.mlresult === 'PHISHING' ? '#b91c1c' : '#15803d', marginTop: '4px', display: 'block' }}>
-                    {selectedItem.mlresult}
-                  </span>
-                </div>
-
-                <div style={{ padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                  <span style={{ color: '#6b7280', display: 'block', fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    Regex Heuristic
-                  </span>
-                  <span style={{ fontWeight: 600, color: selectedItem.rresult === 'SUSPICIOUS' ? '#b45309' : '#15803d', marginTop: '4px', display: 'block' }}>
-                    {selectedItem.rresult}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              {selectedItem.url && (
-                <Link
-                  to={`/?url=${encodeURIComponent(selectedItem.url)}`}
-                  className="btn-primary"
-                  style={{ fontSize: '0.85rem', padding: '8px 16px' }}
-                >
-                  Full Scanner Analysis
-                </Link>
-              )}
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="btn-secondary"
-                style={{ fontSize: '0.85rem', padding: '8px 16px' }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            <span>View Full Log</span>
+            <span>&rarr;</span>
+          </Link>
         </div>
-      )}
+
+        {/* Real Detections Table — Open on Page (No Outer Box Outline) */}
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            textAlign: 'left',
+          }}>
+            <thead>
+              <tr style={{
+                borderBottom: '1px solid #E5E7EB',
+              }}>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  DOMAIN / TARGET URL
+                </th>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  VERDICT
+                </th>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  RISK SCORE
+                </th>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  ML CLASSIFIER
+                </th>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  ACTION
+                </th>
+                <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  TIMESTAMP
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                // Loading Skeleton Rows
+                Array.from({ length: 3 }).map((_, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                    <td colSpan={6} style={{ padding: '16px 10px' }}>
+                      <div style={{
+                        height: '14px',
+                        backgroundColor: '#E5E7EB',
+                        borderRadius: '4px',
+                        animation: 'pulse 1.5s infinite ease-in-out',
+                      }} />
+                    </td>
+                  </tr>
+                ))
+              ) : history.length === 0 ? (
+                // Empty State
+                <tr>
+                  <td colSpan={6} style={{ padding: '48px 10px', textAlign: 'center' }}>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '50%',
+                        backgroundColor: '#F3F4F6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#9CA3AF',
+                      }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#111827' }}>
+                        No detection records found
+                      </div>
+                      <div style={{ fontSize: '0.84rem', color: '#6B7280', maxWidth: '380px' }}>
+                        No scans recorded for the selected time window. Use the Quick URL Scan bar above to inspect your first link.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                // Real Scan Records (Take the first 6 for dashboard preview)
+                history.slice(0, 6).map((item) => {
+                  const isBlocked = item.fresult === 'SUSPICIOUS';
+                  const isReview = item.fresult === 'REVIEW';
+
+                  const verdictLabel = isBlocked ? 'Phishing' : isReview ? 'Review' : 'Safe';
+                  const verdictBg = isBlocked ? '#FEE2E2' : isReview ? '#FEF3C7' : '#DCFCE7';
+                  const verdictColor = isBlocked ? '#B91C1C' : isReview ? '#B45309' : '#15803D';
+
+                  const score = item.riskscore ?? 0;
+                  const scoreColor = score >= 70 ? '#DC2626' : score >= 30 ? '#D97706' : '#15803D';
+
+                  const actionLabel =
+                    item.actiontaken === 'WARNING' || item.actiontaken === 'BLOCKED'
+                      ? 'Blocked'
+                      : item.actiontaken === 'REVIEW'
+                      ? 'Flagged'
+                      : 'Allowed';
+
+                  const classifierLabel = item.modelVersion
+                    ? item.modelVersion
+                    : item.mlresult
+                    ? 'RF, Heuristic'
+                    : 'Rule Engine';
+
+                  return (
+                    <tr
+                      key={item.did}
+                      style={{
+                        borderBottom: '1px solid #F3F4F6',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F5F5F4')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      {/* Target Domain / URL */}
+                      <td style={{ padding: '14px 10px', maxWidth: '320px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                          <span style={{
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            color: '#111827',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }} title={item.url || item.domain}>
+                            {item.url || item.domain || '—'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Verdict Badge */}
+                      <td style={{ padding: '14px 10px' }}>
+                        <span style={{
+                          padding: '3px 9px',
+                          borderRadius: '5px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          backgroundColor: verdictBg,
+                          color: verdictColor,
+                          display: 'inline-block',
+                        }}>
+                          {verdictLabel}
+                        </span>
+                      </td>
+
+                      {/* Risk Score */}
+                      <td style={{ padding: '14px 10px' }}>
+                        <span style={{
+                          fontSize: '0.92rem',
+                          fontWeight: 800,
+                          color: scoreColor,
+                        }}>
+                          {score}
+                        </span>
+                      </td>
+
+                      {/* ML Classifier */}
+                      <td style={{ padding: '14px 10px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#4B5563', fontWeight: 500 }}>
+                          {classifierLabel}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td style={{ padding: '14px 10px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>
+                          {actionLabel}
+                        </span>
+                      </td>
+
+                      {/* Timestamp */}
+                      <td style={{ padding: '14px 10px' }}>
+                        <span style={{ fontSize: '0.84rem', color: '#6B7280', whiteSpace: 'nowrap' }}>
+                          {formatTimestamp(item.detectedat)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Decorative Pixel Stairs (Bottom Right Corner) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        marginTop: '28px',
+        opacity: 0.35,
+        pointerEvents: 'none',
+      }}>
+        <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
+          <rect x="10" y="20" width="8" height="8" fill="#15803D" />
+          <rect x="20" y="12" width="8" height="8" fill="#16A34A" />
+          <rect x="30" y="4" width="8" height="8" fill="#22C55E" />
+          <rect x="40" y="12" width="8" height="8" fill="#86EFAC" />
+        </svg>
+      </div>
     </div>
   );
 }

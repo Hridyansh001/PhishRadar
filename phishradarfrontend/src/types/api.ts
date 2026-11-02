@@ -10,6 +10,8 @@ export interface DetectionResponse {
   regexRiskScore: number;
   finalresult: 'SAFE' | 'REVIEW' | 'SUSPICIOUS';
   risckscore: number; // NOTE: typo matches backend field name
+  riskscore?: number;
+  riskScore?: number;
   actiontaken: 'ALLOWED' | 'REVIEW' | 'WARNING';
   risklevel: 'LOW' | 'MEDIUM' | 'HIGH';
   message: string;
@@ -62,12 +64,24 @@ export interface DetectionHistoryItem {
   actiontaken: string;
   url?: string;
   domain?: string;
+  modelVersion?: string;
+  findings?: string[];
+  explanations?: string[];
+  suggestions?: string[];
+  domainIntelligence?: {
+    ageInDays?: number | string;
+    hasMxRecord?: boolean | string;
+    isSslValid?: boolean | string;
+    isNewlyRegistered?: boolean;
+  };
 }
 
 export interface DetectionStats {
   totalScans: number;
-  suspicious: number;
-  review: number;
-  safe: number;
+  suspicious: number; // Threats & Blocked
+  review: number;     // Requires Review
+  safe: number;       // Safe & Clean
   warnings: number;
+  trendPercentage?: number;
+  trendDirection?: 'up' | 'down' | 'neutral';
 }

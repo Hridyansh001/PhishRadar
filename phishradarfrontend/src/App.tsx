@@ -4,16 +4,18 @@ import { PixelTransition } from './components/PixelTransition';
 import { Sidebar } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
-import { ScannerPage } from './pages/ScannerPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { HistoryPage } from './pages/HistoryPage';
+import { ScannerPage } from './pages/ScannerPage';
+import { DetectionsPage } from './pages/DetectionsPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 
 function AppLayout() {
   const { isAuthenticated } = useAuth();
 
-  // Public/Unauthenticated Layout (Sign In, Sign Up) - Clean full-screen without header or footer
+  // Public/Unauthenticated Layout (Sign In, Sign Up) - Clean full-screen
   if (!isAuthenticated) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent' }}>
@@ -58,8 +60,8 @@ function AppLayout() {
 
   // Authenticated Enterprise Layout with Dedicated Sidebar
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'transparent' }}>
-      {/* Sidebar with all options on the side */}
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#FAFAF9' }}>
+      {/* Sidebar with 5 navigation items */}
       <Sidebar />
 
       {/* Main Workspace Area */}
@@ -69,22 +71,22 @@ function AppLayout() {
         display: 'flex',
         flexDirection: 'column',
       }}>
-
-        {/* Content View with Generous Margins & No Clustering */}
+        {/* Content View with Generous Margins */}
         <main style={{
           flex: 1,
-          padding: '36px 40px 60px 40px',
-          maxWidth: '1440px',
+          padding: '32px 36px 60px 36px',
+          maxWidth: '1360px',
           width: '100%',
           boxSizing: 'border-box',
           margin: '0 auto',
         }}>
           <Routes>
+            {/* 1. Overview (Security Dashboard) */}
             <Route
               path="/"
               element={
                 <ProtectedRoute>
-                  <ScannerPage />
+                  <DashboardPage />
                 </ProtectedRoute>
               }
             />
@@ -96,15 +98,49 @@ function AppLayout() {
                 </ProtectedRoute>
               }
             />
+
+            {/* 2. Scanner */}
             <Route
-              path="/history"
+              path="/scanner"
               element={
                 <ProtectedRoute>
-                  <HistoryPage />
+                  <ScannerPage />
                 </ProtectedRoute>
               }
             />
-            {/* Architecture tab removed and redirected to dashboard */}
+
+            {/* 3. Detections */}
+            <Route
+              path="/detections"
+              element={
+                <ProtectedRoute>
+                  <DetectionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/history" element={<Navigate to="/detections" replace />} />
+
+            {/* 4. Reports */}
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 5. Settings */}
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Aliases & Fallbacks */}
             <Route path="/architecture" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

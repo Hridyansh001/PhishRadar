@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { scanUrl, getDetectionHistory, getDetectionStats, ApiError } from '../services/api';
 import type { DetectionResponse, DetectionHistoryItem, DetectionStats } from '../types/api';
@@ -429,8 +430,8 @@ export function ScannerPage() {
               Click any risk score or entry to inspect the pie chart risk distribution
             </p>
           </div>
-          <a
-            href="/history"
+          <Link
+            to="/detections"
             style={{
               fontSize: '0.88rem',
               color: '#000000',
@@ -440,7 +441,7 @@ export function ScannerPage() {
             }}
           >
             View Full Log
-          </a>
+          </Link>
         </div>
 
         {history.length === 0 ? (
