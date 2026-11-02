@@ -37,8 +37,37 @@ export function DetectionsPage() {
       }
     }
     loadData();
+
+    const handleRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        getDetectionHistory(effectiveUserId, dateRange)
+          .then((data) => {
+            if (isMounted) setHistory(data);
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener('focus', handleRefresh);
+    document.addEventListener('visibilitychange', handleRefresh);
+    window.addEventListener('phishradar_scan_recorded', handleRefresh);
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'PHISHRADAR_THREAT_BLOCKED') {
+        handleRefresh();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    const interval = setInterval(handleRefresh, 6000);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleRefresh);
+      document.removeEventListener('visibilitychange', handleRefresh);
+      window.removeEventListener('phishradar_scan_recorded', handleRefresh);
+      window.removeEventListener('message', handleMessage);
+      clearInterval(interval);
     };
   }, [effectiveUserId, dateRange]);
 
@@ -363,8 +392,13 @@ export function DetectionsPage() {
                         {score}
                       </span>
                     </td>
-                    <td style={{ padding: rowPadding, fontSize: '0.85rem', color: '#4B5563' }}>
-                      {item.modelVersion || item.mlresult || 'Rule Engine'}
+                    <td style={{
+                      padding: rowPadding,
+                      fontSize: '0.85rem',
+                      color: item.mlresult?.toUpperCase() === 'PHISHING' || item.fresult === 'SUSPICIOUS' ? '#DC2626' : '#4B5563',
+                      fontWeight: 500,
+                    }}>
+                      {item.mlresult?.toUpperCase() === 'PHISHING' || item.fresult === 'SUSPICIOUS' ? 'Phishing' : 'Legit'}
                     </td>
                     <td style={{ padding: rowPadding, fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
                       {item.actiontaken}

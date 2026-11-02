@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import {
   getDetectionHistory,
   getDetectionStats,
@@ -10,21 +9,31 @@ import {
 import type { DetectionHistoryItem, DetectionStats } from '../types/api';
 
 export function ReportsPage() {
-  const { user } = useAuth();
-  const effectiveUserId = user?.userid || 1;
-
   const [dateRange, setDateRange] = useState<DateRangeFilter>('7d');
   const [history, setHistory] = useState<DetectionHistoryItem[]>([]);
   const [stats, setStats] = useState<DetectionStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Safe domain extraction that never throws on malformed or protocol-less URLs
+  const extractDomain = (urlOrDomain?: string): string => {
+    if (!urlOrDomain) return 'Unknown';
+    try {
+      const u = urlOrDomain.startsWith('http://') || urlOrDomain.startsWith('https://')
+        ? urlOrDomain
+        : `https://${urlOrDomain}`;
+      return new URL(u).hostname || urlOrDomain;
+    } catch {
+      return urlOrDomain;
+    }
+  };
 
   useEffect(() => {
     async function loadReportData() {
       setIsLoading(true);
       try {
         const [hist, st] = await Promise.all([
-          getDetectionHistory(effectiveUserId, dateRange),
-          getDetectionStats(effectiveUserId, dateRange),
+          getDetectionHistory(undefined, dateRange),
+          getDetectionStats(undefined, dateRange),
         ]);
         setHistory(hist);
         setStats(st);
@@ -35,7 +44,36 @@ export function ReportsPage() {
       }
     }
     loadReportData();
-  }, [effectiveUserId, dateRange]);
+
+    // Auto-refresh when tab gains focus or extension broadcasts new block
+    const handleRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        getDetectionHistory(undefined, dateRange).then(setHistory).catch(() => {});
+        getDetectionStats(undefined, dateRange).then(setStats).catch(() => {});
+      }
+    };
+
+    window.addEventListener('focus', handleRefresh);
+    document.addEventListener('visibilitychange', handleRefresh);
+    window.addEventListener('phishradar_scan_recorded', handleRefresh);
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'PHISHRADAR_THREAT_BLOCKED') {
+        handleRefresh();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    const interval = setInterval(handleRefresh, 6000);
+
+    return () => {
+      window.removeEventListener('focus', handleRefresh);
+      document.removeEventListener('visibilitychange', handleRefresh);
+      window.removeEventListener('phishradar_scan_recorded', handleRefresh);
+      window.removeEventListener('message', handleMessage);
+      clearInterval(interval);
+    };
+  }, [dateRange]);
 
   const total = stats?.totalScans ?? history.length;
   const safe = stats?.safe ?? history.filter((i) => i.fresult === 'SAFE').length;
@@ -59,7 +97,7 @@ export function ReportsPage() {
   // Real domain-level aggregations
   const domainMap = new Map<string, { domain: string; count: number; maxScore: number; latestVerdict: string; lastSeen: string }>();
   for (const item of history) {
-    const d = item.domain || (item.url ? new URL(item.url).hostname : 'Unknown');
+    const d = item.domain || extractDomain(item.url);
     const existing = domainMap.get(d);
     if (!existing) {
       domainMap.set(d, {
@@ -82,6 +120,11 @@ export function ReportsPage() {
   }
 
   const domainSummaries = Array.from(domainMap.values()).sort((a, b) => b.maxScore - a.maxScore);
+
+  // Filter threats blocked by extension or policy
+  const blockedItems = history.filter(
+    (i) => i.fresult === 'SUSPICIOUS' || i.actiontaken === 'WARNING' || i.actiontaken === 'BLOCKED'
+  );
 
   const handleExportCsv = () => {
     if (history.length === 0) return;
@@ -492,6 +535,153 @@ export function ReportsPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Extension Shield - Real-Time Intercepted Threats Section */}
+          <div style={{ paddingTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '5px',
+                    backgroundColor: '#FEE2E2',
+                    color: '#DC2626',
+                    flexShrink: 0,
+                  }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                  </span>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#111827', margin: 0 }}>
+                    Extension Shield — Blocked Threats Log
+                  </h2>
+                </div>
+                <p style={{ fontSize: '0.84rem', color: '#6B7280', margin: 0 }}>
+                  Live attacks, malicious domains, and credential-harvesting pages blocked by the browser extension.
+                </p>
+              </div>
+
+              <span style={{
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                color: blockedItems.length > 0 ? '#DC2626' : '#15803D',
+                backgroundColor: blockedItems.length > 0 ? '#FEE2E2' : '#DCFCE7',
+                padding: '4px 10px',
+                borderRadius: '6px'
+              }}>
+                {blockedItems.length} {blockedItems.length === 1 ? 'Threat Intercepted' : 'Threats Intercepted'}
+              </span>
+            </div>
+
+            {blockedItems.length === 0 ? (
+              <div style={{
+                padding: '32px 16px',
+                textAlign: 'center',
+                backgroundColor: '#F9FAFB',
+                borderRadius: '8px',
+                border: '1px dashed #D1D5DB'
+              }}>
+                <div style={{ color: '#15803D', fontWeight: 700, fontSize: '0.92rem', marginBottom: '4px' }}>
+                  Shield Active — No Threats Blocked in Selected Period
+                </div>
+                <div style={{ color: '#6B7280', fontSize: '0.82rem' }}>
+                  Any dangerous websites or credential theft links blocked by the browser extension will immediately show up in this log.
+                </div>
+              </div>
+            ) : (
+              <div style={{ width: '100%', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                      <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        BLOCKED TARGET URL
+                      </th>
+                      <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        PROTECTION SOURCE
+                      </th>
+                      <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        RISK SCORE
+                      </th>
+                      <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        ACTION
+                      </th>
+                      <th style={{ padding: '12px 10px', fontSize: '0.74rem', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        INTERCEPTED AT
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blockedItems.map((item) => (
+                      <tr
+                        key={item.did}
+                        style={{ borderBottom: '1px solid #F3F4F6', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEF2F2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <td style={{ padding: '12px 10px', maxWidth: '380px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#DC2626', display: 'flex', alignItems: 'center' }}>
+                              ⚠️
+                            </span>
+                            <span style={{
+                              fontWeight: 700,
+                              color: '#111827',
+                              fontSize: '0.88rem',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }} title={item.url || item.domain}>
+                              {item.url || item.domain}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            backgroundColor: '#F3F4F6',
+                            color: '#374151'
+                          }}>
+                            {item.source || 'Extension Shield'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px', fontWeight: 800, color: '#DC2626', fontSize: '0.92rem' }}>
+                          {item.riskscore ?? 100} / 100
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            backgroundColor: '#FEE2E2',
+                            color: '#B91C1C'
+                          }}>
+                            Blocked
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px', color: '#6B7280', fontSize: '0.84rem' }}>
+                          {item.detectedat ? new Date(item.detectedat).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                          }) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

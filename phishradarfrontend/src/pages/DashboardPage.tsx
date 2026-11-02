@@ -992,11 +992,10 @@ export function DashboardPage() {
                       ? 'Flagged'
                       : 'Allowed';
 
-                  const classifierLabel = item.modelVersion
-                    ? item.modelVersion
-                    : item.mlresult
-                    ? 'RF, Heuristic'
-                    : 'Rule Engine';
+                  const isMlPhishing =
+                    item.mlresult?.toUpperCase() === 'PHISHING' ||
+                    item.fresult === 'SUSPICIOUS';
+                  const mlVerdict = isMlPhishing ? 'Phishing' : 'Legit';
 
                   return (
                     <tr
@@ -1056,10 +1055,8 @@ export function DashboardPage() {
                       </td>
 
                       {/* ML Classifier */}
-                      <td style={{ padding: '14px 10px' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#4B5563', fontWeight: 500 }}>
-                          {classifierLabel}
-                        </span>
+                      <td style={{ padding: '14px 10px', fontSize: '0.85rem', color: isMlPhishing ? '#DC2626' : '#4B5563', fontWeight: 500 }}>
+                        {mlVerdict}
                       </td>
 
                       {/* Action */}

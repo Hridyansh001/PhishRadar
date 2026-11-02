@@ -24,6 +24,7 @@ public class detectionservice {
     private final mldetectionservice mldetectionservice;
     private final DomainIntelligenceService domainIntelligenceService;
     private final PythonMlServiceClient pythonMlServiceClient;
+    private final ThreatFeedService threatFeedService;
 
     public detectionservice(regexdetectionservice regexdetectionservice,
                             usersrepository usersrepository,
@@ -31,7 +32,7 @@ public class detectionservice {
                             detectionrepository detectionrepository,
                             mldetectionservice mldetectionservice) {
         this(regexdetectionservice, usersrepository, websiterepository, detectionrepository, mldetectionservice,
-                new DomainIntelligenceService(), new PythonMlServiceClient());
+                new DomainIntelligenceService(), new PythonMlServiceClient(), new ThreatFeedService());
     }
 
     @Autowired
@@ -41,7 +42,8 @@ public class detectionservice {
                             detectionrepository detectionrepository,
                             mldetectionservice mldetectionservice,
                             DomainIntelligenceService domainIntelligenceService,
-                            PythonMlServiceClient pythonMlServiceClient) {
+                            PythonMlServiceClient pythonMlServiceClient,
+                            ThreatFeedService threatFeedService) {
         this.regexdetectionservice = regexdetectionservice;
         this.usersrepository = usersrepository;
         this.websiterepository = websiterepository;
@@ -49,6 +51,7 @@ public class detectionservice {
         this.mldetectionservice = mldetectionservice;
         this.domainIntelligenceService = domainIntelligenceService;
         this.pythonMlServiceClient = pythonMlServiceClient;
+        this.threatFeedService = threatFeedService;
     }
 
     private static final Set<String> TRUSTED_DOMAINS = Set.of(
@@ -130,6 +133,16 @@ public class detectionservice {
         }
 
         List<String> explanations = new ArrayList<>();
+
+        // Fast-Path: Live Threat Intelligence Feeds Check (< 1ms cache lookup)
+        ThreatFeedService.ThreatFeedMatch feedMatch = threatFeedService != null
+                ? threatFeedService.check(normalizedUrl, domain)
+                : new ThreatFeedService.ThreatFeedMatch(false, null, null);
+
+        if (feedMatch.isMatch()) {
+            findings.add("GLOBAL_THREAT_FEED_MATCH");
+            explanations.add("Critical: " + feedMatch.reason());
+        }
 
         // 1. Phase 1: DOM Signals & Telemetry Analysis
         boolean hasPassword = false;
@@ -253,13 +266,17 @@ public class detectionservice {
             boolean hasCriticalFinding = findings.contains("BRAND_IMPERSONATION")
                     || findings.contains("TYPOSQUATTING_DETECTED")
                     || findings.contains("HIGHLY_SUSPICIOUS_DOMAIN")
-                    || findings.contains("EXTERNAL_FORM_PASSWORD_HARVESTING");
+                    || findings.contains("EXTERNAL_FORM_PASSWORD_HARVESTING")
+                    || findings.contains("GLOBAL_THREAT_FEED_MATCH");
 
             boolean hasIpOrCredentialFinding = findings.contains("IP_ADDRESS_IN_URL")
                     || findings.contains("AT_SYMBOL_IN_URL")
                     || findings.contains("NEWLY_REGISTERED_DOMAIN");
 
-            if (findings.contains("EXTERNAL_FORM_PASSWORD_HARVESTING")) {
+            if (findings.contains("GLOBAL_THREAT_FEED_MATCH")) {
+                riskscore = 100;
+                message = "Confirmed malicious threat in global threat feeds (" + feedMatch.source() + "). Blocked immediately.";
+            } else if (findings.contains("EXTERNAL_FORM_PASSWORD_HARVESTING")) {
                 riskscore = Math.max(riskscore, 95);
             } else if (hasCriticalFinding) {
                 riskscore = Math.max(riskscore, 85);
@@ -339,6 +356,10 @@ public class detectionservice {
                 String capBrand = brand.substring(0, 1).toUpperCase(Locale.ROOT) + brand.substring(1);
                 suggestions.add("⚠️ This site appears to mimic " + capBrand + ". We strongly recommend visiting the official site: https://" + officialDomain);
             }
+        }
+
+        if (findings.contains("GLOBAL_THREAT_FEED_MATCH")) {
+            suggestions.add("🚨 Known malicious address listed on global cyber threat intelligence blacklists (" + feedMatch.source() + "). Do not proceed under any circumstance.");
         }
 
         if (findings.contains("TYPOSQUATTING_DETECTED")) {

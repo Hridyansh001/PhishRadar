@@ -62,6 +62,7 @@ export interface DetectionHistoryItem {
   fresult: string;
   riskscore: number;
   actiontaken: string;
+  source?: string;
   url?: string;
   domain?: string;
   modelVersion?: string;
