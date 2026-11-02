@@ -619,18 +619,28 @@ async function init() {
         });
       }
 
-      // ML and regex info
-      const extraInfo = [];
-      if (result.mlresult) extraInfo.push(`ML: ${result.mlresult}`);
-      if (result.regexresult) extraInfo.push(`Regex: ${result.regexresult}`);
-      if (extraInfo.length > 0) {
-        const infoTag = document.createElement('span');
-        infoTag.className = 'finding-tag';
-        infoTag.textContent = extraInfo.join(' | ');
-        scanDetails.appendChild(infoTag);
+      // ML and regex indicator (placed immediately beneath threat description)
+      let scanIndicators = document.getElementById('scan-indicators');
+      if (!scanIndicators && scanMessage) {
+        scanIndicators = document.createElement('div');
+        scanIndicators.id = 'scan-indicators';
+        scanIndicators.className = 'scan-indicators';
+        scanMessage.insertAdjacentElement('afterend', scanIndicators);
+      }
+      if (scanIndicators) {
+        scanIndicators.innerHTML = '';
+        const extraInfo = [];
+        if (result.mlresult) extraInfo.push(`ML: ${result.mlresult}`);
+        if (result.regexresult) extraInfo.push(`Regex: ${result.regexresult}`);
+        if (extraInfo.length > 0) {
+          const infoTag = document.createElement('span');
+          infoTag.className = 'finding-tag';
+          infoTag.textContent = extraInfo.join(' | ');
+          scanIndicators.appendChild(infoTag);
+        }
       }
 
-      // Intelligent Security Suggestions & Guidance
+      // Intelligent Security Suggestions & Guidance (positioned immediately beneath ML/Regex indicator)
       const existingBox = scanPanel.querySelector('.scan-suggestions-box');
       if (existingBox) existingBox.remove();
 
@@ -649,7 +659,7 @@ async function init() {
         suggestions.slice(0, 3).forEach(sugg => {
           const item = document.createElement('div');
           item.className = 'suggestion-item';
-          item.textContent = sugg;
+          item.textContent = (sugg || '').replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, '').trim();
           box.appendChild(item);
         });
 
@@ -662,7 +672,12 @@ async function init() {
           box.appendChild(altLink);
         }
 
-        scanPanel.appendChild(box);
+        // Position upwards immediately beneath verdict, risk score, threat description and ML/Regex indicator
+        if (scanDetails) {
+          scanPanel.insertBefore(box, scanDetails);
+        } else {
+          scanPanel.appendChild(box);
+        }
       }
     }
   }

@@ -141,6 +141,7 @@ function AppLayout() {
             />
 
             {/* Aliases & Fallbacks */}
+            <Route path="/security" element={<Navigate to="/dashboard" replace />} />
             <Route path="/architecture" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

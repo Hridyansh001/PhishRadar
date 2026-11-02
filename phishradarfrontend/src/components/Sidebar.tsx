@@ -13,7 +13,7 @@ export function Sidebar() {
   };
 
   const navLinks = [
-    { path: '/dashboard', label: 'Overview', icon: 'grid', matchPaths: ['/dashboard', '/'] },
+    { path: '/dashboard', label: 'Overview', icon: 'grid', matchPaths: ['/dashboard', '/', '/security'] },
     { path: '/scanner', label: 'Scanner', icon: 'scanner', matchPaths: ['/scanner'] },
     { path: '/detections', label: 'Detections', icon: 'detections', matchPaths: ['/detections', '/history'] },
     { path: '/reports', label: 'Reports', icon: 'reports', matchPaths: ['/reports'] },

@@ -175,24 +175,10 @@
   // (We do NOT use window.history.back() because that causes a re-scan loop.)
   document.getElementById('btn-back').addEventListener('click', function () {
     this.disabled  = true;
-    this.textContent = 'Going back...';
+    this.textContent = 'Returning to Security Dashboard...';
 
-    // Ask background to navigate this tab away
-    try {
-      chrome.runtime.sendMessage({ type: 'GO_BACK_TO_SAFETY' }, function () {
-        // Background handled it; if we're still here after 600ms use fallbacks
-        setTimeout(function () {
-          if (!window.closed) {
-            if (!window.close()) {
-              window.location.replace('about:blank');
-            }
-          }
-        }, 600);
-      });
-    } catch (e) {
-      // runtime not available (shouldn't happen in extension page, but just in case)
-      window.location.replace('about:blank');
-    }
+    // Navigate to actual Security section of the dashboard
+    window.location.href = 'http://localhost:5173/dashboard';
   });
 
   // ── CONTINUE BUTTON ────────────────────────────────────────────────────

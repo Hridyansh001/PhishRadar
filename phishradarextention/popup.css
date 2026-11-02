@@ -497,6 +497,13 @@ body {
   margin-bottom: 10px;
 }
 
+.scan-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .scan-details {
   display: flex;
   flex-wrap: wrap;
